@@ -1,12 +1,16 @@
 from .nodes.MattingUtils import NODE_CLASS_MAPPINGS as MATTING_NCM
 from .nodes.MattingUtils import NODE_DISPLAY_NAME_MAPPINGS as MATTING_NDNM
+from .nodes.ScaleUtils import NODE_CLASS_MAPPINGS as SCALE_NCM
+from .nodes.ScaleUtils import NODE_DISPLAY_NAME_MAPPINGS as SCALE_NDNM
 
 NODE_CLASS_MAPPINGS = {
     **MATTING_NCM,
+    **SCALE_NCM,
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
     **MATTING_NDNM,
+    **SCALE_NDNM,
 }
 
 __all__ = ["NODE_CLASS_MAPPINGS", "NODE_DISPLAY_NAME_MAPPINGS"]
