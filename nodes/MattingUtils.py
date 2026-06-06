@@ -23,7 +23,7 @@ class BackgroundColor:
 
     RETURN_TYPES = ("IMAGE",)
     FUNCTION = "apply_background"
-    CATEGORY = "Matting/Utils"
+    CATEGORY = "charlierz/Matting"
 
     def apply_background(self, image, mask, red, green, blue):
         # 1. Normalize Colors to 0-1 range and move to device
