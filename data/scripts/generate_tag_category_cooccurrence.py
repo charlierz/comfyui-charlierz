@@ -10,9 +10,6 @@ TOP_N = 100
 CATEGORY_DIR = Path("tag_categories")
 GENERAL_TAGS = Path("general.txt")
 TAGS_CSV = Path("danbooru_tags.csv")
-FALLBACK_TAGS_CSV = Path(
-    "/home/charlierz/ComfyImage/custom_nodes/ComfyUI-Autocomplete-Plus/data/danbooru_tags.csv"
-)
 COOCCURRENCE_CSV = Path("danbooru_tags_cooccurrence.csv")
 DOWNLOAD_SCRIPT = Path("scripts/download_danbooru_tag_csv.py")
 OUTPUT_DIR = Path("tag_category_cooccurrence")
@@ -35,15 +32,14 @@ def load_general_tag_order() -> dict[str, int]:
 
 
 def load_tag_counts() -> dict[str, float]:
-    tags_csv = TAGS_CSV if TAGS_CSV.exists() else FALLBACK_TAGS_CSV
-    if not tags_csv.exists():
+    if not TAGS_CSV.exists():
         raise FileNotFoundError(
-            f"Could not find {TAGS_CSV} or fallback tag metadata CSV: {FALLBACK_TAGS_CSV}. "
+            f"Could not find {TAGS_CSV}. "
             f"Run {DOWNLOAD_SCRIPT} to download local CSV inputs."
         )
 
     counts: dict[str, float] = {}
-    with tags_csv.open(newline="") as f:
+    with TAGS_CSV.open(newline="") as f:
         reader = csv.DictReader(f)
         for row in reader:
             tag = row["tag"].strip()
@@ -52,7 +48,7 @@ def load_tag_counts() -> dict[str, float]:
             except ValueError:
                 continue
 
-    print(f"Loaded {len(counts)} tag counts from {tags_csv}")
+    print(f"Loaded {len(counts)} tag counts from {TAGS_CSV}")
     return counts
 
 

@@ -8,8 +8,6 @@ from typing import Any
 
 from PIL import Image
 
-MODELS_INI_PATH = os.environ.get("CHARLIERZ_LLAMA_CPP_MODELS_INI", "/mnt/workspace/llm/models.ini")
-
 
 class LlamaCppChat:
     @classmethod
@@ -22,9 +20,9 @@ class LlamaCppChat:
                 ),
                 "models_ini_path": (
                     "STRING",
-                    {"default": MODELS_INI_PATH},
+                    {"default": ""},
                 ),
-                "model": (_get_model_choices(MODELS_INI_PATH),),
+                "model": ([""],),
                 "system_prompt": (
                     "STRING",
                     {"multiline": True, "default": ""},
@@ -117,9 +115,9 @@ class LlamaCppVisionChat:
                 ),
                 "models_ini_path": (
                     "STRING",
-                    {"default": MODELS_INI_PATH},
+                    {"default": ""},
                 ),
-                "model": (_get_model_choices(MODELS_INI_PATH, vision_only=True),),
+                "model": ([""],),
                 "system_prompt": (
                     "STRING",
                     {"multiline": True, "default": ""},
@@ -217,19 +215,6 @@ class LlamaCppVisionChat:
         return (content, json.dumps(usage, ensure_ascii=False, indent=2))
 
 
-def _get_model_choices(models_ini_path: str, vision_only: bool = False) -> list[str]:
-    choices = _read_models_ini_choices(models_ini_path, vision_only=vision_only)
-    return choices or [""]
-
-
-def _read_models_ini_choices(path: str, vision_only: bool = False) -> list[str]:
-    return [
-        display_name
-        for display_name, entry in _read_models_ini_name_map(path).items()
-        if not vision_only or entry["has_mmproj"]
-    ]
-
-
 def _read_models_ini_name_map(path: str) -> dict[str, dict[str, Any]]:
     if not os.path.exists(path):
         return {}
@@ -242,7 +227,7 @@ def _read_models_ini_name_map(path: str) -> dict[str, dict[str, Any]]:
     def add_current_model() -> None:
         section = current_section.strip()
         display_name = (current_alias or current_section).strip()
-        if not section or not display_name or display_name.endswith("-reasoning"):
+        if not section or not display_name:
             return
         name_map.setdefault(
             display_name,

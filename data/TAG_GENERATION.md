@@ -2,6 +2,10 @@
 
 This folder contains Danbooru tag lists and generated TSVs for finding related tags within curated tag categories.
 
+## Credits
+
+Source CSVs are downloaded from [`newtextdoc1111/danbooru-tag-csv`](https://huggingface.co/datasets/newtextdoc1111/danbooru-tag-csv). The generated files in this folder are derived from that dataset plus this repository's curated category files.
+
 ## Source data
 
 - `danbooru_tags.csv` — tag metadata: `tag,category,count,alias`. Used for tag post counts in relatedness scoring. Large local input; ignored by git.
@@ -57,11 +61,7 @@ After editing `tag_categories/*.txt`, re-sort the category files, then regenerat
 ```
 
 The Python generation script reads tag counts from `./danbooru_tags.csv`.
-If that file is absent, it falls back to:
-
-```text
-/home/charlierz/ComfyImage/custom_nodes/ComfyUI-Autocomplete-Plus/data/danbooru_tags.csv
-```
+If that file is absent, run `./scripts/download_danbooru_tag_csv.py` first.
 
 ## Tag categories
 

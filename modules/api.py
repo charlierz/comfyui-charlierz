@@ -56,7 +56,7 @@ def _read_models_ini_entries(path: str) -> list[dict[str, Any]]:
     def add_current_model() -> None:
         section = current_section.strip()
         display_name = (current_alias or current_section).strip()
-        if not section or not display_name or display_name.endswith("-reasoning"):
+        if not section or not display_name:
             return
         if any(entry["display_name"] == display_name for entry in entries):
             return
