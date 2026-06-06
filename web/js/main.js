@@ -59,8 +59,17 @@ async function reloadLlamaCppModels(node) {
     return;
   }
 
+  const params = new URLSearchParams({ path: modelsIniPath });
+  if (node.comfyClass === "LlamaCppVisionChat") {
+    params.set("vision_only", "true");
+    params.set(
+      "server_url",
+      getWidgetValue(node, "server_url") || "http://127.0.0.1:8080",
+    );
+  }
+
   const response = await api.fetchApi(
-    `/charlierz-llama-cpp/models-ini?path=${encodeURIComponent(modelsIniPath)}`,
+    `/charlierz-llama-cpp/models-ini?${params.toString()}`,
   );
   const result = await response.json();
   if (!response.ok || result.error) {
@@ -115,7 +124,7 @@ app.registerExtension({
       return;
     }
 
-    if (nodeData.name !== "LlamaCppChat") return;
+    if (!["LlamaCppChat", "LlamaCppVisionChat"].includes(nodeData.name)) return;
 
     const originalOnNodeCreated = nodeType.prototype.onNodeCreated;
     nodeType.prototype.onNodeCreated = function () {

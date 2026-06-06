@@ -1,8 +1,12 @@
+import base64
+import io
 import json
 import os
 import urllib.error
 import urllib.request
 from typing import Any
+
+from PIL import Image
 
 MODELS_INI_PATH = os.environ.get("CHARLIERZ_LLAMA_CPP_MODELS_INI", "/mnt/workspace/llm/models.ini")
 
@@ -31,15 +35,7 @@ class LlamaCppChat:
                 ),
                 "reasoning": (
                     "BOOLEAN",
-                    {"default": True},
-                ),
-                "max_tokens": (
-                    "INT",
-                    {"default": 1024, "min": 1, "max": 32768},
-                ),
-                "temperature": (
-                    "FLOAT",
-                    {"default": -1.0, "min": -1.0, "max": 2.0, "step": 0.01},
+                    {"default": False},
                 ),
                 "seed": (
                     "INT",
@@ -47,7 +43,7 @@ class LlamaCppChat:
                 ),
                 "timeout_seconds": (
                     "INT",
-                    {"default": 600, "min": 1, "max": 3600},
+                    {"default": 120, "min": 1, "max": 3600},
                 ),
                 "unload_after_run": (
                     "BOOLEAN",
@@ -69,8 +65,6 @@ class LlamaCppChat:
         system_prompt,
         user_prompt,
         reasoning,
-        max_tokens,
-        temperature,
         seed,
         timeout_seconds,
         unload_after_run,
@@ -80,22 +74,17 @@ class LlamaCppChat:
         if not model:
             raise ValueError("model is required")
 
-        messages: list[dict[str, str]] = []
+        messages: list[dict[str, Any]] = []
         if system_prompt.strip():
             messages.append({"role": "system", "content": system_prompt})
         messages.append({"role": "user", "content": user_prompt})
 
-        payload: dict[str, Any] = {
-            "model": model,
-            "messages": messages,
-            "max_tokens": max_tokens,
-        }
-        if temperature >= 0:
-            payload["temperature"] = temperature
-        payload["reasoning"] = "on" if reasoning else "off"
-        payload["chat_template_kwargs"] = {"enable_thinking": reasoning}
-        if seed >= 0:
-            payload["seed"] = seed
+        payload = _build_chat_payload(
+            model=model,
+            messages=messages,
+            reasoning=reasoning,
+            seed=seed,
+        )
 
         try:
             response = _post_json(
@@ -116,25 +105,149 @@ class LlamaCppChat:
         return (content, json.dumps(usage, ensure_ascii=False, indent=2))
 
 
-def _get_model_choices(models_ini_path: str) -> list[str]:
-    choices = _read_models_ini_choices(models_ini_path)
+class LlamaCppVisionChat:
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "image": ("IMAGE",),
+                "server_url": (
+                    "STRING",
+                    {"default": "http://127.0.0.1:8080"},
+                ),
+                "models_ini_path": (
+                    "STRING",
+                    {"default": MODELS_INI_PATH},
+                ),
+                "model": (_get_model_choices(MODELS_INI_PATH, vision_only=True),),
+                "system_prompt": (
+                    "STRING",
+                    {"multiline": True, "default": ""},
+                ),
+                "user_prompt": (
+                    "STRING",
+                    {"multiline": True, "default": "Describe this image."},
+                ),
+                "reasoning": (
+                    "BOOLEAN",
+                    {"default": False},
+                ),
+                "seed": (
+                    "INT",
+                    {"default": -1, "min": -1, "max": 0xFFFFFFFF},
+                ),
+                "timeout_seconds": (
+                    "INT",
+                    {"default": 120, "min": 1, "max": 3600},
+                ),
+                "unload_after_run": (
+                    "BOOLEAN",
+                    {"default": False},
+                ),
+            }
+        }
+
+    RETURN_TYPES = ("STRING", "STRING")
+    RETURN_NAMES = ("response", "usage_json")
+    FUNCTION = "chat"
+    CATEGORY = "charlierz/LLM"
+
+    def chat(
+        self,
+        image,
+        server_url,
+        models_ini_path,
+        model,
+        system_prompt,
+        user_prompt,
+        reasoning,
+        seed,
+        timeout_seconds,
+        unload_after_run,
+    ):
+        server_url = _normalize_server_url(server_url)
+        model = model.strip()
+        if not model:
+            raise ValueError("model is required")
+
+        _validate_model_supports_image(
+            server_url,
+            model,
+            models_ini_path,
+            min(timeout_seconds, 30),
+        )
+        image_url = _image_to_png_data_url(image)
+
+        messages: list[dict[str, Any]] = []
+        if system_prompt.strip():
+            messages.append({"role": "system", "content": system_prompt})
+        messages.append(
+            {
+                "role": "user",
+                "content": [
+                    {"type": "image_url", "image_url": {"url": image_url}},
+                    {"type": "text", "text": user_prompt},
+                ],
+            }
+        )
+
+        payload = _build_chat_payload(
+            model=model,
+            messages=messages,
+            reasoning=reasoning,
+            seed=seed,
+        )
+
+        try:
+            response = _post_json(
+                f"{server_url}/v1/chat/completions",
+                payload,
+                timeout_seconds,
+            )
+            content = _extract_chat_content(response)
+            usage = _extract_usage(response)
+        finally:
+            if unload_after_run:
+                _post_json(
+                    f"{server_url}/models/unload",
+                    {"model": model},
+                    min(timeout_seconds, 60),
+                )
+
+        return (content, json.dumps(usage, ensure_ascii=False, indent=2))
+
+
+def _get_model_choices(models_ini_path: str, vision_only: bool = False) -> list[str]:
+    choices = _read_models_ini_choices(models_ini_path, vision_only=vision_only)
     return choices or [""]
 
 
-def _read_models_ini_choices(path: str) -> list[str]:
-    if not os.path.exists(path):
-        return []
+def _read_models_ini_choices(path: str, vision_only: bool = False) -> list[str]:
+    return [
+        display_name
+        for display_name, entry in _read_models_ini_name_map(path).items()
+        if not vision_only or entry["has_mmproj"]
+    ]
 
-    choices: list[str] = []
+
+def _read_models_ini_name_map(path: str) -> dict[str, dict[str, Any]]:
+    if not os.path.exists(path):
+        return {}
+
+    name_map: dict[str, dict[str, Any]] = {}
     current_section = ""
     current_alias = ""
+    current_has_mmproj = False
 
     def add_current_model() -> None:
-        model_name = (current_alias or current_section).strip()
-        if not model_name or model_name.endswith("-reasoning"):
+        section = current_section.strip()
+        display_name = (current_alias or current_section).strip()
+        if not section or not display_name or display_name.endswith("-reasoning"):
             return
-        if model_name not in choices:
-            choices.append(model_name)
+        name_map.setdefault(
+            display_name,
+            {"section": section, "has_mmproj": current_has_mmproj},
+        )
 
     with open(path, "r", encoding="utf-8") as f:
         for raw_line in f:
@@ -145,16 +258,20 @@ def _read_models_ini_choices(path: str) -> list[str]:
                 add_current_model()
                 current_section = line[1:-1].strip()
                 current_alias = ""
+                current_has_mmproj = False
                 continue
 
             key, separator, value = line.partition("=")
             if not separator:
                 continue
-            if key.strip().lower() == "alias":
+            key = key.strip().lower()
+            if key == "alias":
                 current_alias = value.strip()
+            elif key == "mmproj":
+                current_has_mmproj = bool(value.strip())
 
     add_current_model()
-    return choices
+    return name_map
 
 
 def _normalize_server_url(server_url: str) -> str:
@@ -162,6 +279,23 @@ def _normalize_server_url(server_url: str) -> str:
     if not server_url:
         raise ValueError("server_url is required")
     return server_url
+
+
+def _build_chat_payload(
+    model: str,
+    messages: list[dict[str, Any]],
+    reasoning: bool,
+    seed: int,
+) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "model": model,
+        "messages": messages,
+        "reasoning": "on" if reasoning else "off",
+        "chat_template_kwargs": {"enable_thinking": reasoning},
+    }
+    if seed >= 0:
+        payload["seed"] = seed
+    return payload
 
 
 def _get_json(url: str, timeout_seconds: int) -> Any:
@@ -200,6 +334,92 @@ def _post_json(url: str, payload: dict[str, Any], timeout_seconds: int) -> Any:
     return json.loads(text)
 
 
+def _image_to_png_data_url(image: Any) -> str:
+    if len(image.shape) != 4:
+        raise ValueError(
+            "Expected IMAGE tensor shape [batch, height, width, channels], "
+            f"got {tuple(image.shape)}"
+        )
+
+    first_image = image[0].detach().cpu().clamp(0, 1)
+    array = (first_image.numpy() * 255.0).round().astype("uint8")
+
+    if array.shape[-1] == 1:
+        pil_image = Image.fromarray(array[..., 0], mode="L")
+    elif array.shape[-1] == 4:
+        pil_image = Image.fromarray(array, mode="RGBA")
+    else:
+        pil_image = Image.fromarray(array[..., :3], mode="RGB")
+
+    buffer = io.BytesIO()
+    pil_image.save(buffer, format="PNG")
+    encoded = base64.b64encode(buffer.getvalue()).decode("ascii")
+    return f"data:image/png;base64,{encoded}"
+
+
+def _get_llama_models_data(server_url: str, timeout_seconds: int) -> list[dict[str, Any]]:
+    response = _get_json(f"{server_url}/models", timeout_seconds)
+    if isinstance(response, dict):
+        data = response.get("data", response.get("models", []))
+    else:
+        data = response
+    if not isinstance(data, list):
+        return []
+    return [item for item in data if isinstance(item, dict)]
+
+
+def _get_model_name(model_info: dict[str, Any]) -> str:
+    for key in ("id", "model", "name"):
+        value = model_info.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    return ""
+
+
+def _validate_model_supports_image(
+    server_url: str,
+    model: str,
+    models_ini_path: str,
+    timeout_seconds: int,
+) -> None:
+    models = _get_llama_models_data(server_url, timeout_seconds)
+    model_names = {
+        _get_model_name(item): item for item in models if _get_model_name(item)
+    }
+    validation_model = model
+    model_info = model_names.get(validation_model)
+
+    if model_info is None:
+        entry = _read_models_ini_name_map(models_ini_path).get(model)
+        validation_model = entry["section"] if entry else model
+        model_info = model_names.get(validation_model)
+
+    if model_info is None:
+        available = ", ".join(model_names.keys())
+        alias_note = ""
+        if validation_model != model:
+            alias_note = f" Alias '{model}' resolved to '{validation_model}'."
+        raise ValueError(
+            f"Selected model '{model}' was not found in llama.cpp /models metadata."
+            f"{alias_note} Available models: {available or '(none)'}"
+        )
+
+    architecture = model_info.get("architecture")
+    modalities = (
+        architecture.get("input_modalities") if isinstance(architecture, dict) else None
+    )
+    if not isinstance(modalities, list) or "image" not in modalities:
+        alias_note = ""
+        if validation_model != model:
+            alias_note = f" alias '{model}' resolves to '{validation_model}', which"
+        else:
+            alias_note = f" '{model}'"
+        raise ValueError(
+            f"Selected model{alias_note} does not advertise image input support in "
+            f"/models architecture.input_modalities. Found: {modalities!r}"
+        )
+
+
 def _extract_usage(response: Any) -> dict[str, Any]:
     usage = response.get("usage", {}) if isinstance(response, dict) else {}
     return usage if isinstance(usage, dict) else {}
@@ -221,8 +441,10 @@ def _extract_chat_content(response: Any) -> str:
 
 NODE_CLASS_MAPPINGS = {
     "LlamaCppChat": LlamaCppChat,
+    "LlamaCppVisionChat": LlamaCppVisionChat,
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
     "LlamaCppChat": "Llama.cpp Chat",
+    "LlamaCppVisionChat": "Llama.cpp Vision Chat",
 }

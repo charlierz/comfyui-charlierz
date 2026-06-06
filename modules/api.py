@@ -36,20 +36,37 @@ CATEGORY_EXTRA_TSV_KEY_FILES = {
 EXCLUDED_RELATED_METHODS = {"conditional", "dice"}
 
 
-def _read_models_ini_choices(path: str) -> list[str]:
+def _read_models_ini_choices(path: str, vision_only: bool = False) -> list[str]:
+    return [
+        model["display_name"]
+        for model in _read_models_ini_entries(path)
+        if not vision_only or model["has_mmproj"]
+    ]
+
+
+def _read_models_ini_entries(path: str) -> list[dict[str, Any]]:
     if not os.path.exists(path):
         raise FileNotFoundError(path)
 
-    choices: list[str] = []
+    entries: list[dict[str, Any]] = []
     current_section = ""
     current_alias = ""
+    current_has_mmproj = False
 
     def add_current_model() -> None:
-        model_name = (current_alias or current_section).strip()
-        if not model_name or model_name.endswith("-reasoning"):
+        section = current_section.strip()
+        display_name = (current_alias or current_section).strip()
+        if not section or not display_name or display_name.endswith("-reasoning"):
             return
-        if model_name not in choices:
-            choices.append(model_name)
+        if any(entry["display_name"] == display_name for entry in entries):
+            return
+        entries.append(
+            {
+                "display_name": display_name,
+                "section": section,
+                "has_mmproj": current_has_mmproj,
+            }
+        )
 
     with open(path, "r", encoding="utf-8") as f:
         for raw_line in f:
@@ -60,14 +77,47 @@ def _read_models_ini_choices(path: str) -> list[str]:
                 add_current_model()
                 current_section = line[1:-1].strip()
                 current_alias = ""
+                current_has_mmproj = False
                 continue
 
             key, separator, value = line.partition("=")
-            if separator and key.strip().lower() == "alias":
+            if not separator:
+                continue
+            key = key.strip().lower()
+            if key == "alias":
                 current_alias = value.strip()
+            elif key == "mmproj":
+                current_has_mmproj = bool(value.strip())
 
     add_current_model()
-    return choices
+    return entries
+
+
+def _get_llama_model_name(model_info: dict[str, Any]) -> str:
+    for key in ("id", "model", "name"):
+        value = model_info.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    return ""
+
+
+def _get_llama_models_data(server_url: str) -> list[dict[str, Any]]:
+    response = _llama_get_json(f"{_normalize_server_url(server_url)}/models")
+    if isinstance(response, dict):
+        data = response.get("data", response.get("models", []))
+    else:
+        data = response
+    if not isinstance(data, list):
+        return []
+    return [item for item in data if isinstance(item, dict)]
+
+
+def _model_supports_image(model_info: dict[str, Any]) -> bool:
+    architecture = model_info.get("architecture")
+    modalities = (
+        architecture.get("input_modalities") if isinstance(architecture, dict) else None
+    )
+    return isinstance(modalities, list) and "image" in modalities
 
 
 def _normalize_server_url(server_url: str) -> str:
@@ -247,11 +297,35 @@ async def get_llama_cpp_models_ini(request):
     if not path.strip():
         return web.json_response({"error": "Missing path"}, status=400)
 
+    vision_only = str(request.query.get("vision_only", "")).lower() in {
+        "1",
+        "true",
+        "yes",
+    }
+    server_url = str(request.query.get("server_url", "")).strip()
+
     try:
-        return web.json_response({"models": _read_models_ini_choices(path)})
+        if not vision_only or not server_url:
+            return web.json_response(
+                {"models": _read_models_ini_choices(path, vision_only=vision_only)}
+            )
+
+        entries = _read_models_ini_entries(path)
+        llama_models = _get_llama_models_data(server_url)
+        image_model_names = {
+            _get_llama_model_name(model)
+            for model in llama_models
+            if _get_llama_model_name(model) and _model_supports_image(model)
+        }
+        models = [
+            entry["display_name"]
+            for entry in entries
+            if entry["has_mmproj"] and entry["section"] in image_model_names
+        ]
+        return web.json_response({"models": models})
     except FileNotFoundError:
         return web.json_response({"error": "models.ini not found"}, status=404)
-    except OSError as e:
+    except (OSError, RuntimeError, ValueError) as e:
         return web.json_response({"error": str(e)}, status=400)
 
 
