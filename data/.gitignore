@@ -1,0 +1,3 @@
+# Large generated/source CSV inputs. Download with scripts/download_danbooru_tag_csv.py.
+danbooru_tags.csv
+danbooru_tags_cooccurrence.csv
