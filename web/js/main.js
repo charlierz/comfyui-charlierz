@@ -7,7 +7,6 @@ import { CATEGORY_INPUTS } from "./data.js";
 const extensionId = "charlierz.PromptHelperAutocomplete";
 const autocomplete = new PromptHelperAutocomplete();
 
-
 function loadCss() {
   const href = new URL("../css/prompt-helper.css", import.meta.url).href;
   if (document.querySelector(`link[href="${href}"]`)) return;
@@ -19,7 +18,9 @@ function loadCss() {
 }
 
 function isPromptHelperWidget(node, inputName) {
-  return node?.comfyClass === "PromptHelper" && CATEGORY_INPUTS.includes(inputName);
+  return (
+    node?.comfyClass === "PromptHelper" && CATEGORY_INPUTS.includes(inputName)
+  );
 }
 
 function isAutocompleteElement(element) {
@@ -27,7 +28,8 @@ function isAutocompleteElement(element) {
     element &&
     !element.readOnly &&
     (element.tagName === "TEXTAREA" ||
-      (element.tagName === "INPUT" && ["", "text", "search"].includes(element.type)))
+      (element.tagName === "INPUT" &&
+        ["", "text", "search"].includes(element.type)))
   );
 }
 
@@ -36,7 +38,12 @@ function getWidgetValue(node, name) {
 }
 
 function addReadOnlyTextWidget(node, name) {
-  const result = ComfyWidgets.STRING(node, name, ["STRING", { multiline: true }], app);
+  const result = ComfyWidgets.STRING(
+    node,
+    name,
+    ["STRING", { multiline: true }],
+    app,
+  );
   const widget = result.widget;
   const element = widget.element ?? widget.inputEl;
   if (element) element.readOnly = true;
@@ -52,40 +59,59 @@ function setComboWidgetValues(widget, values) {
   }
 }
 
-async function reloadLlamaCppModels(node) {
-  const modelsIniPath = String(getWidgetValue(node, "models_ini_path") || "").trim();
-  if (!modelsIniPath) {
-    alert("Missing models.ini path");
-    return;
-  }
+function getLlamaCppModelsData(result) {
+  const models = Array.isArray(result)
+    ? result
+    : result.data || result.models || [];
+  return models.filter((model) => model && typeof model === "object");
+}
 
-  const params = new URLSearchParams({ path: modelsIniPath });
-  if (node.comfyClass === "LlamaCppVisionChat") {
-    params.set("vision_only", "true");
-    params.set(
-      "server_url",
-      getWidgetValue(node, "server_url") || "http://127.0.0.1:8080",
-    );
-  }
+function getLlamaCppModelDisplayName(model) {
+  const firstAlias = Array.isArray(model.aliases) ? model.aliases[0] : "";
+  return String(
+    firstAlias || model.id || model.model || model.name || "",
+  ).trim();
+}
+
+function llamaCppModelSupportsImage(model) {
+  return model.architecture?.input_modalities?.includes("image") === true;
+}
+
+async function reloadLlamaCppModels(node) {
+  const serverUrl =
+    getWidgetValue(node, "server_url") || "http://127.0.0.1:8080";
+  const params = new URLSearchParams({ server_url: serverUrl });
 
   const response = await api.fetchApi(
-    `/charlierz-llama-cpp/models-ini?${params.toString()}`,
+    `/charlierz-llama-cpp/models?${params.toString()}`,
   );
   const result = await response.json();
   if (!response.ok || result.error) {
-    throw new Error(result.error || `Model reload failed with HTTP ${response.status}`);
+    throw new Error(
+      result.error || `Model reload failed with HTTP ${response.status}`,
+    );
   }
+
+  const models = getLlamaCppModelsData(result)
+    .filter(
+      (model) =>
+        node.comfyClass !== "LlamaCppVisionChat" ||
+        llamaCppModelSupportsImage(model),
+    )
+    .map(getLlamaCppModelDisplayName)
+    .filter(Boolean);
 
   const modelWidget = node.widgets?.find((widget) => widget.name === "model");
   if (!modelWidget) {
     throw new Error("Model widget not found");
   }
-  setComboWidgetValues(modelWidget, result.models ?? []);
+  setComboWidgetValues(modelWidget, models);
   node.setDirtyCanvas(true, true);
 }
 
 async function unloadLlamaCppModel(node) {
-  const serverUrl = getWidgetValue(node, "server_url") || "http://127.0.0.1:8080";
+  const serverUrl =
+    getWidgetValue(node, "server_url") || "http://127.0.0.1:8080";
   const model = String(getWidgetValue(node, "model") || "").trim();
   if (!model) {
     alert("Missing llama.cpp model");
@@ -99,10 +125,11 @@ async function unloadLlamaCppModel(node) {
   });
   const result = await response.json();
   if (!response.ok || result.error) {
-    throw new Error(result.error || `Unload failed with HTTP ${response.status}`);
+    throw new Error(
+      result.error || `Unload failed with HTTP ${response.status}`,
+    );
   }
 }
-
 
 app.registerExtension({
   name: extensionId,
@@ -111,7 +138,10 @@ app.registerExtension({
       const originalOnNodeCreated = nodeType.prototype.onNodeCreated;
       nodeType.prototype.onNodeCreated = function () {
         originalOnNodeCreated?.apply(this, arguments);
-        this.tokenEstimateWidget = addReadOnlyTextWidget(this, "token_estimate");
+        this.tokenEstimateWidget = addReadOnlyTextWidget(
+          this,
+          "token_estimate",
+        );
       };
 
       const originalOnExecuted = nodeType.prototype.onExecuted;

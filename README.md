@@ -8,7 +8,7 @@ Personal ComfyUI custom nodes and browser extensions for image-prompt authoring,
 
 - `Llama.cpp Chat` calls an OpenAI-compatible llama.cpp server at `/v1/chat/completions`.
 - `Llama.cpp Vision Chat` sends a ComfyUI image as a PNG data URL and validates image support using `/models` metadata.
-- Frontend buttons reload model choices from `models.ini` and unload the selected model.
+- Frontend buttons reload model choices from `/models` metadata and unload the selected model.
 
 ### Prompt Helper
 

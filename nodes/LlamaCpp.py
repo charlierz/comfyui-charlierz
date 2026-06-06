@@ -1,7 +1,6 @@
 import base64
 import io
 import json
-import os
 import urllib.error
 import urllib.request
 from typing import Any
@@ -17,10 +16,6 @@ class LlamaCppChat:
                 "server_url": (
                     "STRING",
                     {"default": "http://127.0.0.1:8080"},
-                ),
-                "models_ini_path": (
-                    "STRING",
-                    {"default": ""},
                 ),
                 "model": ([""],),
                 "system_prompt": (
@@ -58,7 +53,6 @@ class LlamaCppChat:
     def chat(
         self,
         server_url,
-        models_ini_path,
         model,
         system_prompt,
         user_prompt,
@@ -113,10 +107,6 @@ class LlamaCppVisionChat:
                     "STRING",
                     {"default": "http://127.0.0.1:8080"},
                 ),
-                "models_ini_path": (
-                    "STRING",
-                    {"default": ""},
-                ),
                 "model": ([""],),
                 "system_prompt": (
                     "STRING",
@@ -154,7 +144,6 @@ class LlamaCppVisionChat:
         self,
         image,
         server_url,
-        models_ini_path,
         model,
         system_prompt,
         user_prompt,
@@ -171,7 +160,6 @@ class LlamaCppVisionChat:
         _validate_model_supports_image(
             server_url,
             model,
-            models_ini_path,
             min(timeout_seconds, 30),
         )
         image_url = _image_to_png_data_url(image)
@@ -213,50 +201,6 @@ class LlamaCppVisionChat:
                 )
 
         return (content, json.dumps(usage, ensure_ascii=False, indent=2))
-
-
-def _read_models_ini_name_map(path: str) -> dict[str, dict[str, Any]]:
-    if not os.path.exists(path):
-        return {}
-
-    name_map: dict[str, dict[str, Any]] = {}
-    current_section = ""
-    current_alias = ""
-    current_has_mmproj = False
-
-    def add_current_model() -> None:
-        section = current_section.strip()
-        display_name = (current_alias or current_section).strip()
-        if not section or not display_name:
-            return
-        name_map.setdefault(
-            display_name,
-            {"section": section, "has_mmproj": current_has_mmproj},
-        )
-
-    with open(path, "r", encoding="utf-8") as f:
-        for raw_line in f:
-            line = raw_line.strip()
-            if not line or line.startswith(("#", ";")):
-                continue
-            if line.startswith("[") and line.endswith("]"):
-                add_current_model()
-                current_section = line[1:-1].strip()
-                current_alias = ""
-                current_has_mmproj = False
-                continue
-
-            key, separator, value = line.partition("=")
-            if not separator:
-                continue
-            key = key.strip().lower()
-            if key == "alias":
-                current_alias = value.strip()
-            elif key == "mmproj":
-                current_has_mmproj = bool(value.strip())
-
-    add_current_model()
-    return name_map
 
 
 def _normalize_server_url(server_url: str) -> str:
@@ -361,32 +305,30 @@ def _get_model_name(model_info: dict[str, Any]) -> str:
     return ""
 
 
+def _get_model_lookup_names(model_info: dict[str, Any]) -> list[str]:
+    names = [_get_model_name(model_info)]
+    aliases = model_info.get("aliases")
+    if isinstance(aliases, list):
+        names.extend(alias.strip() for alias in aliases if isinstance(alias, str))
+    return [name for name in names if name]
+
+
 def _validate_model_supports_image(
     server_url: str,
     model: str,
-    models_ini_path: str,
     timeout_seconds: int,
 ) -> None:
     models = _get_llama_models_data(server_url, timeout_seconds)
     model_names = {
-        _get_model_name(item): item for item in models if _get_model_name(item)
+        name: item for item in models for name in _get_model_lookup_names(item)
     }
-    validation_model = model
-    model_info = model_names.get(validation_model)
-
-    if model_info is None:
-        entry = _read_models_ini_name_map(models_ini_path).get(model)
-        validation_model = entry["section"] if entry else model
-        model_info = model_names.get(validation_model)
+    model_info = model_names.get(model)
 
     if model_info is None:
         available = ", ".join(model_names.keys())
-        alias_note = ""
-        if validation_model != model:
-            alias_note = f" Alias '{model}' resolved to '{validation_model}'."
         raise ValueError(
-            f"Selected model '{model}' was not found in llama.cpp /models metadata."
-            f"{alias_note} Available models: {available or '(none)'}"
+            f"Selected model '{model}' was not found in llama.cpp /models metadata. "
+            f"Available models and aliases: {available or '(none)'}"
         )
 
     architecture = model_info.get("architecture")
@@ -394,10 +336,9 @@ def _validate_model_supports_image(
         architecture.get("input_modalities") if isinstance(architecture, dict) else None
     )
     if not isinstance(modalities, list) or "image" not in modalities:
-        alias_note = ""
-        if validation_model != model:
-            alias_note = f" alias '{model}' resolves to '{validation_model}', which"
-        else:
+        canonical_name = _get_model_name(model_info)
+        alias_note = f" alias '{model}' resolves to '{canonical_name}', which"
+        if model == canonical_name:
             alias_note = f" '{model}'"
         raise ValueError(
             f"Selected model{alias_note} does not advertise image input support in "
