@@ -66,6 +66,22 @@ export async function loadCharacterTags(character) {
   return tags;
 }
 
+export async function searchCatalog({ query, context = "prompt", category = null, types = null, limit = 80 }) {
+  const url = new URL("/charlierz-prompt-catalog/search", window.location.origin);
+  url.searchParams.set("q", query);
+  url.searchParams.set("context", context);
+  url.searchParams.set("limit", `${limit}`);
+  if (category) url.searchParams.set("category", category);
+  if (types?.length) url.searchParams.set("types", types.join(","));
+
+  const response = await fetch(url, { cache: "no-store" });
+  if (!response.ok) {
+    throw new Error(`Failed to search prompt catalog: ${response.status}`);
+  }
+
+  return response.json();
+}
+
 export async function loadRelatedTags(method, category, tag) {
   const key = `${method}:${category}:${tag}`;
   if (relatedCache.has(key)) return relatedCache.get(key);

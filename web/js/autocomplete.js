@@ -3,7 +3,7 @@ import {
   loadCharacterTags,
   loadRelatedMethods,
   loadRelatedTags,
-  loadTags,
+  searchCatalog,
 } from "./data.js";
 import {
   getCurrentPartialTag,
@@ -45,32 +45,20 @@ function openDanbooruWiki(tag) {
 }
 
 function getTagValue(item) {
-  return typeof item === "string" ? item : item.tag;
+  if (typeof item === "string") return item;
+  return item.insertText ?? item.tag ?? item.label;
 }
 
-function searchTags(tags, query, priorityTagClasses = null) {
-  const normalizedQuery = normalizeTag(query).toLowerCase();
-  if (!normalizedQuery) return [];
+function getTagLabel(item) {
+  if (typeof item === "string") return item;
+  return item.label ?? item.tag ?? item.insertText;
+}
 
-  const matches = [];
-  const seenTags = new Set();
-
-  for (const tag of tags) {
-    const normalizedTag = tag.toLowerCase();
-    if (seenTags.has(normalizedTag) || !normalizedTag.includes(normalizedQuery)) {
-      continue;
-    }
-
-    seenTags.add(normalizedTag);
-    matches.push({
-      tag,
-      priorityClass: priorityTagClasses?.get(normalizedTag) ?? null,
-    });
-
-    if (matches.length >= MAX_AUTOCOMPLETE_RESULTS) break;
-  }
-
-  return matches;
+function getCatalogBadge(item) {
+  if (typeof item === "string" || !item.type || item.type === "tag") return "tag";
+  if (item.type === "wildcard") return "wildcard";
+  if (item.type === "wildcard_entry") return item.wildcardLabel ? `entry · ${item.wildcardLabel}` : "entry";
+  return item.type;
 }
 
 function appendTags(textarea, tags) {
@@ -256,7 +244,7 @@ class TagPopup {
 
       event.preventDefault();
       event.stopPropagation();
-      this.onSelect?.(item.dataset.tag);
+      this.onSelect?.(this.items[Number(item.dataset.index)]);
     });
   }
 
@@ -287,25 +275,34 @@ class TagPopup {
     const existingSet = new Set(existingTags);
     for (const [index, tagItem] of tags.entries()) {
       const tag = getTagValue(tagItem);
+      const label = getTagLabel(tagItem);
       const item = document.createElement("div");
       item.className = "charlierz-tag-popup-item";
       item.dataset.index = `${index}`;
       item.dataset.tag = tag;
+      item.dataset.resultType = tagItem?.type ?? "tag";
       if (tagItem?.priorityClass) {
         item.classList.add("priority-match", tagItem.priorityClass);
       }
 
       const tagName = document.createElement("span");
       tagName.className = "charlierz-tag-name";
-      tagName.textContent = tag;
+      tagName.textContent = label;
       item.appendChild(tagName);
 
-      const danbooruLink = document.createElement("span");
-      danbooruLink.className = "charlierz-danbooru-link";
-      danbooruLink.dataset.tag = tag;
-      danbooruLink.title = "Open Danbooru wiki page";
-      danbooruLink.textContent = "↗";
-      item.appendChild(danbooruLink);
+      const badge = document.createElement("span");
+      badge.className = `charlierz-result-badge charlierz-result-badge-${tagItem?.type ?? "tag"}`;
+      badge.textContent = getCatalogBadge(tagItem);
+      item.appendChild(badge);
+
+      if (!tagItem?.type || tagItem.type === "tag") {
+        const danbooruLink = document.createElement("span");
+        danbooruLink.className = "charlierz-danbooru-link";
+        danbooruLink.dataset.tag = tag;
+        danbooruLink.title = "Open Danbooru wiki page";
+        danbooruLink.textContent = "↗";
+        item.appendChild(danbooruLink);
+      }
 
       if (existingSet.has(normalizeTag(tag))) {
         item.classList.add("already-used");
@@ -334,8 +331,8 @@ class TagPopup {
   }
 
   selectCurrent() {
-    const tag = getTagValue(this.items[this.selectedIndex]);
-    if (tag) this.onSelect?.(tag);
+    const item = this.items[this.selectedIndex];
+    if (item) this.onSelect?.(item);
   }
 
   #highlightSelected() {
@@ -457,6 +454,8 @@ export class PromptHelperAutocomplete {
       prioritySources = [],
       node = null,
       categoryName = null,
+      searchContext = "prompt",
+      searchTypes = ["tag"],
     } = {},
   ) {
     if (this.attachedTextareas.has(textarea)) return;
@@ -468,6 +467,8 @@ export class PromptHelperAutocomplete {
       prioritySources,
       node,
       categoryName,
+      searchContext,
+      searchTypes,
     });
     if (node && categoryName) {
       if (!this.nodeTextareas.has(node)) this.nodeTextareas.set(node, new Map());
@@ -499,24 +500,14 @@ export class PromptHelperAutocomplete {
       return;
     }
 
-    const [sourceTags, ...priorityTagLists] = await Promise.all([
-      loadTags(config.source),
-      ...config.prioritySources.map(({ source }) => loadTags(source)),
-    ]);
-
-    const priorityTagClasses = new Map();
-    for (const [index, tags] of priorityTagLists.entries()) {
-      const priorityClass = config.prioritySources[index].className;
-      for (const tag of tags) {
-        const normalizedTag = tag.toLowerCase();
-        if (!priorityTagClasses.has(normalizedTag)) {
-          priorityTagClasses.set(normalizedTag, priorityClass);
-        }
-      }
-    }
-
-    const tags = [...new Set([...priorityTagLists.flat(), ...sourceTags])];
-    const matches = searchTags(tags, partial, priorityTagClasses);
+    const catalogResult = await searchCatalog({
+      query: partial,
+      context: config.searchContext ?? "prompt",
+      category: config.relatedCategory,
+      types: config.searchTypes ?? ["tag"],
+      limit: MAX_AUTOCOMPLETE_RESULTS,
+    });
+    const matches = catalogResult.results ?? [];
     if (!matches.length) {
       this.autocompletePopup.hide();
       return;
@@ -528,7 +519,7 @@ export class PromptHelperAutocomplete {
       config.source.replaceAll("_", " "),
       matches,
       getExistingTags(textarea),
-      (tag) => this.#insertAutocompleteTag(textarea, tag),
+      (item) => this.#insertAutocompleteItem(textarea, item, config),
     );
   }
 
@@ -648,12 +639,17 @@ export class PromptHelperAutocomplete {
     }, 150);
   }
 
-  #insertAutocompleteTag(textarea, tag) {
+  #insertAutocompleteItem(textarea, item, config) {
     const range = getCurrentTagRange(textarea.value, textarea.selectionStart);
     if (!range) return;
 
-    const suffix = textarea.value[range.end] === "," ? "" : ", ";
-    insertText(textarea, range.start, textarea.selectionStart, `${tag}${suffix}`);
+    const value = getTagValue(item);
+    if (!value) return;
+
+    const isWildcardRef = item?.type === "wildcard";
+    const usePromptTagSuffix = !isWildcardRef;
+    const suffix = usePromptTagSuffix && textarea.value[range.end] !== "," ? ", " : "";
+    insertText(textarea, range.start, textarea.selectionStart, `${value}${suffix}`);
     this.autocompletePopup.hide();
   }
 

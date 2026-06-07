@@ -28,6 +28,58 @@ Adds a structured prompt node and frontend autocomplete for Danbooru-style tags.
 
 The frontend extension wraps ComfyUI's `ComfyWidgets.STRING` factory so it can attach autocomplete to the actual textarea/input elements as ComfyUI creates them. `Prompt Helper` category fields get category-aware autocomplete and related-tag behavior; other editable string widgets get general Danbooru tag autocomplete.
 
+### Wildcard Processor
+
+`Wildcard Processor` expands curated wildcard references into prompt text. It is independent of Impact Pack and uses a small documented syntax inspired by Impact/Dynamic Prompts rather than exact third-party compatibility.
+
+Inputs:
+
+- `wildcard_text`: prompt template containing wildcard/variant syntax.
+- `preview_text`: latest preview text; when frozen, this is the final output text.
+- `frozen`: when off, expands `wildcard_text`; when on, outputs `preview_text` exactly.
+- `seed`: deterministic random seed for generation.
+
+Output:
+
+- `processed_text`: generated or frozen prompt text.
+
+Frontend buttons:
+
+- `Browse Wildcards`: opens a nested wildcard tree plus search/preview/insert browser for wildcards, entries, and tags. Selecting a wildcard shows its literal entries; click an entry to insert it as prompt text, or use `Insert` to insert the selected wildcard reference/result. Browser insertions are comma-separated from existing `wildcard_text`.
+- `Preview / Reroll`: randomizes `seed`, expands `wildcard_text` through the backend processor, and writes the result to `preview_text`.
+
+Freeze workflow:
+
+1. Keep `frozen` off while experimenting.
+2. Click `Preview / Reroll` until `preview_text` contains a result to keep.
+3. Turn `frozen` on. The node now outputs `preview_text` exactly.
+4. Turn `frozen` off to resume generation from `wildcard_text`.
+
+Wildcard files live under `data/wildcards`. The executable first-class format is plain `.txt`; each non-empty, non-comment line is one entry. Full-line `#` comments and blank lines are ignored. YAML/JSON wildcard files are not executed initially.
+
+Wildcard IDs are path-based, case-insensitive, and normalize spaces to underscores. For example:
+
+```text
+data/wildcards/appearance/hair/color.txt -> __appearance/hair/color__
+```
+
+Supported syntax:
+
+```text
+__path/name__              # sample one entry from a wildcard file
+__path/*__                 # sample from matching one-level files
+__path/**__                # sample recursively from descendant files
+{red|blue|green}           # inline variant
+{0.2::rare|1.0::common}    # weighted variant options
+{2$$red|blue|green}        # pick two options
+{1-3$$red|blue|green}      # pick a ranged count
+{2$$, $$red|blue|green}    # pick two with a custom separator
+```
+
+Entries and selected variant options are expanded recursively, so wildcards can contain variants and variants can contain wildcard references. Expansion has cycle and depth protection. Missing, cyclic, empty, or depth-limited wildcards insert visible markers into `processed_text` and log diagnostics.
+
+Escaping uses backslashes for literal syntax characters where needed, such as `\{`, `\}`, `\|`, and `\_`.
+
 Prompt categories are curated in `data/tag_categories/*.txt`:
 
 - `style_quality`

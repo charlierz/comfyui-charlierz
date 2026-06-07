@@ -8,6 +8,8 @@ from typing import Any
 import server
 from aiohttp import web
 
+from .prompt_catalog import expand_wildcards, get_wildcard_detail, list_wildcards, search_catalog
+
 DATA_DIR = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "data"))
 TAG_CATEGORIES_DIR = os.path.join(DATA_DIR, "tag_categories")
 TAG_COOCCURRENCE_DIR = os.path.join(DATA_DIR, "tag_category_cooccurrence")
@@ -242,6 +244,70 @@ async def unload_llama_cpp_model(request):
 @server.PromptServer.instance.routes.get("/charlierz-prompt-helper/categories")
 async def get_categories(_request):
     return web.json_response(list(CATEGORY_FILES.keys()))
+
+
+@server.PromptServer.instance.routes.get("/charlierz-prompt-catalog/wildcards")
+async def get_prompt_catalog_wildcards(_request):
+    return web.json_response(list_wildcards())
+
+
+@server.PromptServer.instance.routes.get("/charlierz-prompt-catalog/wildcard")
+async def get_prompt_catalog_wildcard(request):
+    wildcard_id = str(request.query.get("id", ""))
+    if not wildcard_id.strip():
+        return web.json_response({"error": "Missing wildcard id"}, status=400)
+    try:
+        return web.json_response(get_wildcard_detail(wildcard_id))
+    except ValueError as e:
+        return web.json_response({"error": str(e)}, status=404)
+
+
+@server.PromptServer.instance.routes.get("/charlierz-prompt-catalog/search")
+async def get_prompt_catalog_search(request):
+    query = str(request.query.get("q", ""))
+    context = str(request.query.get("context", "prompt"))
+    if context not in {"prompt", "wildcard"}:
+        context = "prompt"
+
+    category = request.query.get("category")
+    raw_types = str(request.query.get("types", "")).strip()
+    types = {item.strip() for item in raw_types.split(",") if item.strip()} or None
+
+    try:
+        limit = int(request.query.get("limit", 80))
+    except (TypeError, ValueError):
+        limit = 80
+    limit = max(1, min(limit, 200))
+
+    try:
+        return web.json_response(
+            search_catalog(
+                query,
+                context=context,  # type: ignore[arg-type]
+                category=str(category) if category else None,
+                types=types,
+                limit=limit,
+            )
+        )
+    except FileNotFoundError as e:
+        return web.json_response({"error": str(e)}, status=404)
+
+
+@server.PromptServer.instance.routes.post("/charlierz-prompt-catalog/preview")
+async def post_prompt_catalog_preview(request):
+    try:
+        payload = await request.json()
+    except json.JSONDecodeError:
+        return web.json_response({"error": "Invalid JSON body"}, status=400)
+
+    text = str(payload.get("text", ""))
+    try:
+        seed = int(payload.get("seed", 0))
+    except (TypeError, ValueError):
+        seed = 0
+
+    processed_text, diagnostics = expand_wildcards(text, seed=seed)
+    return web.json_response({"processedText": processed_text, "diagnostics": diagnostics})
 
 
 @server.PromptServer.instance.routes.get("/charlierz-prompt-helper/related-methods")

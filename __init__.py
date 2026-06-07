@@ -9,6 +9,8 @@ from .nodes.LlamaCpp import NODE_CLASS_MAPPINGS as LLAMA_CPP_NCM
 from .nodes.LlamaCpp import NODE_DISPLAY_NAME_MAPPINGS as LLAMA_CPP_NDNM
 from .nodes.TextUtils import NODE_CLASS_MAPPINGS as TEXT_UTILS_NCM
 from .nodes.TextUtils import NODE_DISPLAY_NAME_MAPPINGS as TEXT_UTILS_NDNM
+from .nodes.WildcardProcessor import NODE_CLASS_MAPPINGS as WILDCARD_NCM
+from .nodes.WildcardProcessor import NODE_DISPLAY_NAME_MAPPINGS as WILDCARD_NDNM
 
 NODE_CLASS_MAPPINGS = {
     **MATTING_NCM,
@@ -16,6 +18,7 @@ NODE_CLASS_MAPPINGS = {
     **PROMPT_HELPER_NCM,
     **LLAMA_CPP_NCM,
     **TEXT_UTILS_NCM,
+    **WILDCARD_NCM,
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
@@ -24,6 +27,7 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     **PROMPT_HELPER_NDNM,
     **LLAMA_CPP_NDNM,
     **TEXT_UTILS_NDNM,
+    **WILDCARD_NDNM,
 }
 
 WEB_DIRECTORY = "./web"
