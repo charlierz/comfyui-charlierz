@@ -5,16 +5,24 @@ beach	80553
 nature	36612	
 forest	26587	
 mountain	18293	
+underwater	16529	
+on ground	13103	
+soaking feet	8282	
 river	5922	
 waterfall	4866	
 shore	4559	
 lake	4407	
+submerged	3000	
+in tree	2910	
 bamboo forest	2882	
 hill	2731	
 desert	2654	
 cliff	2552	
 pond	2178	
 cave	2008	
+against tree	1863	
+in water	1588	
+on rock	1491	
 park	1479	
 stream	1409	
 island	1163	
@@ -23,13 +31,20 @@ jungle	736
 meadow	658	
 playground	640	
 volcano	576	
+on water	566	
+on innertube	541	
 parking lot	366	
 wetland	358	
 canyon	298	
+sitting on tree stump	297	
 savannah	257	
+against rock	213	
 seafloor	204	
+partially immersed	166	
 glacier	142	
+behind tree	126	
 wasteland	111	
 geyser		
 oasis		
 plain		
+sitting on ground		

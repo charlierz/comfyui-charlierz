@@ -1,11 +1,5 @@
 tag	count	related
-hair ornament	1190764	
 hat	898595	
-hair ribbon	491768	
-earrings	458252	
-hair bow	428906	
-hairband	396719	
-hairclip	282746	
 glasses	256895	
 hood	218298	
 maid headdress	124459	
@@ -14,12 +8,10 @@ beret	83627
 witch hat	76249	
 sunglasses	75506	
 headphones	72156	
-headband	64546	
 tiara	54852	
 crown	52474	
 veil	49550	
 goggles	43627	
-hair bobbles	41459	
 baseball cap	37035	
 peaked cap	35325	
 round eyewear	34528	
@@ -29,7 +21,6 @@ tokin hat	29013
 sun hat	26438	
 headset	25839	
 hoop earrings	25759	
-hairpin	24276	
 mouth mask	23975	
 top hat	23347	
 circlet	23342	
@@ -51,7 +42,6 @@ sailor hat	13083
 fox mask	11803	
 frilled hairband	11185	
 lolita hairband	10919	
-headphones around neck	10736	
 garrison cap	10664	
 bow hairband	10376	
 earmuffs	9569	
@@ -61,28 +51,31 @@ bonnet	8110
 mini top hat	7565	
 earclip	7175	
 jester cap	6810	
+adjusting headwear	6449	
+holding hat	6321	
+holding removed eyewear	6290	
 cowboy hat	6149	
 monocle	5845	
 earpiece	5780	
 heart-shaped eyewear	5698	
 cat ear headphones	5361	
 fur hat	5200	
+holding mask	5135	
 pirate hat	4964	
 surgical mask	4765	
+mask pull	4690	
 hair beads	4551	
 eye mask	4543	
 fedora	4301	
-kanzashi	3919	
 wizard hat	3882	
 domino mask	3819	
-goggles around neck	3740	
 laurel crown	3410	
 opaque glasses	3328	
 chef hat	3232	
 gas mask	3128	
 mouth veil	2755	
-winged helmet	2541	
 sleep mask	2364	
+holding helmet	2225	
 diving mask	1940	
 party hat	1922	
 space helmet	1634	
@@ -98,21 +91,41 @@ star-shaped eyewear	954
 pointed crown	848	
 ski goggles	844	
 bowler hat	751	
+mask lift	587	
 plague doctor mask	488	
 oxygen mask	483	
+removing eyewear	483	
 character mask	437	
 aviator cap	409	
 pilot helmet	387	
 mortarboard	384	
+hat tug	369	
+visor lift	365	
 sombrero	347	
+eyewear lift	326	
+holding crown	312	
+holding goggles	312	
 fox hat	311	
 floating crown	309	
 bicycle helmet	296	
 rabbit mask	277	
+blindfold lift	274	
+hat loss	270	
+eyepatch lift	254	
+adjusting hood	237	
+putting on headwear	235	
 animal ears helmet	234	
+removing mask	232	
 gimp mask	217	
+hand on own hat	203	
 hijab	195	
+hands on eyewear	185	
 semi-circular eyewear	177	
+veil lift	165	
+adjusting headphones	156	
+eyewear switch	130	
+adjusting mask	114	
+removing hat	109	
 american football helmet		
 carnival mask		
 collage graduation hat		

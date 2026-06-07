@@ -16,6 +16,7 @@ tower	4593
 school	4458	
 shop	4409	
 library	3896	
+on bench	3870	
 shrine	3755	
 rooftop	3541	
 restaurant	2824	
@@ -24,14 +25,18 @@ church	2586
 town	2413	
 office	2376	
 cafe	2361	
+against railing	2345	
 alley	2313	
 railroad tracks	2041	
 train station	1985	
 gym	1835	
 crosswalk	1785	
+shared umbrella	1702	
 stadium	1610	
 garden	1566	
 graveyard	1542	
+on motorcycle	1514	
+on car	1469	
 ferris wheel	1418	
 fountain	1399	
 sidewalk	1395	
@@ -39,7 +44,9 @@ clock tower	1277
 bus stop	1263	
 convenience store	1209	
 aquarium	1058	
+on railing	1010	
 lighthouse	990	
+on roof	977	
 windmill	924	
 casino	918	
 pier	891	
@@ -48,12 +55,14 @@ pagoda	799
 dock	787	
 wheat field	733	
 hospital	726	
+on scooter	721	
 rice paddy	717	
 prison	715	
 temple	714	
 rural	681	
 railroad crossing	675	
 running track	661	
+on tank	658	
 carousel	628	
 village	610	
 amusement park	597	
@@ -67,6 +76,8 @@ bakery	461
 dirt road	457	
 canal	451	
 tunnel	449	
+against fence	444	
+on boat	432	
 phone booth	422	
 supermarket	387	
 harbor	376	
@@ -74,13 +85,17 @@ market	372
 factory	333	
 tavern	316	
 roller coaster	313	
+in shopping cart	312	
 well	312	
 airport	299	
 wooden bridge	298	
 highway	293	
 industrial	291	
 gazebo	273	
+on wall	267	
+under umbrella	266	
 izakaya	237	
+sitting on roof	231	
 barn	212	
 construction site	205	
 hut	204	
@@ -90,6 +105,7 @@ nightclub	191
 mall	186	
 theater	179	
 zoo	177	
+sitting on fence	175	
 flower shop	173	
 museum	170	
 runway	166	
@@ -107,6 +123,8 @@ trench	129
 soccer field	121	
 bell tower	119	
 shack	105	
+leaning against vehicle	104	
+on swing	102	
 airfield		
 amphitheater		
 aqueduct		
@@ -119,6 +137,7 @@ cooling tower
 dam		
 drydock		
 guard tower		
+in pool		
 jetty		
 military base		
 minaret		
