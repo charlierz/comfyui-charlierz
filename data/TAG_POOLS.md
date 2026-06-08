@@ -117,7 +117,22 @@ Scene/background buckets:
 - `scene/effects.tsv` — scene effects: fire, smoke, sparkles, bubbles, explosions, blood splatter.
 - `visual/symbols.tsv` — non-face graphic symbols: `heart`, `star (symbol)`, `musical note`, `arrow (symbol)`.
 - Visual materials/colors/patterns belong under `visual/`.
-- Rendering/shading/media format belong under `style/`.
+
+Style buckets:
+
+- `style/censoring.tsv` — censorship state and methods: `censored`, `mosaic censoring`, `bar censor`.
+- `style/text.tsv` — visible text, names, usernames, subtitles, lyrics, dialogue, and language tags.
+- `style/branding.tsv` — logos, watermarks, copyright notices, platform/company branding, and publication marks.
+- `style/color_palette.tsv` — palette/theme tags: `blue theme`, `muted color`, `pastel colors`, `rainbow gradient`.
+- `style/meta.tsv` — crossovers, references, connections, cameos, fourth-wall/meta tags, and source-category leakage that is about metadata rather than visible scene contents.
+- `style/meme_event.tsv` — memes, drawing challenges, holidays, greetings, and commemorative day tags.
+- Official/adapted/borrowed/alternate design variant tags belong in the most visible semantic domain: outfit variants under clothes, hair variants under body/hair, eye variants under face, palette variants under `style/color_palette.tsv`, and broad redesign/prototype metadata under `style/meta.tsv`.
+- `style/genre_theme.tsv` — genre, setting, era, and thematic labels: `fantasy`, `cyberpunk`, `steampunk`, `post-apocalypse`.
+- `style/format.tsv` — comic/page/publication/format tags.
+- `style/styles.tsv` — art styles and rendering idioms.
+- `style/techniques.tsv` — rendering techniques and visual effects: `motion blur`, `chromatic aberration`.
+- `style/shading.tsv` — shading, hatching, screentones, and painterly texture.
+- `style/errors.tsv` — malformed/low-quality/error tags.
 
 ## Duplicate policy
 
@@ -168,7 +183,7 @@ for p in Path('data/tag_pools').rglob('*.tsv'):
         if line.strip():
             pool.add(line.split('\t')[0])
 
-for category in ['actions_poses', 'appearance_anatomy', 'expressions', 'scene_background']:
+for category in ['actions_poses', 'appearance_anatomy', 'expressions', 'scene_background', 'style_quality']:
     tags = [
         line.strip().replace('_', ' ')
         for line in Path(f'data/tag_categories/{category}.txt').read_text().splitlines()
