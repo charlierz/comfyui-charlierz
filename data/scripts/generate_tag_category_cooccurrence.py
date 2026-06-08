@@ -7,6 +7,9 @@ from collections import defaultdict
 from pathlib import Path
 
 TOP_N = 100
+SMOOTHED_COSINE_K = 20.0
+# Number of rows in the source trojblue/danbooru2025-metadata train split.
+TOTAL_POSTS = 9_113_285.0
 CATEGORY_DIR = Path("tag_categories")
 GENERAL_TAGS = Path("general.txt")
 TAGS_CSV = Path("danbooru_tags.csv")
@@ -18,6 +21,9 @@ METRICS = (
     "jaccard",
     "lift",
     "cosine",
+    "smoothed_cosine",
+    "cosine_jaccard",
+    "llr",
 )
 
 
@@ -52,6 +58,41 @@ def load_tag_counts() -> dict[str, float]:
     return counts
 
 
+def log_likelihood_ratio(
+    source_count: float,
+    target_count: float,
+    cooccurrence: float,
+) -> float:
+    expected = source_count * target_count / TOTAL_POSTS
+    if cooccurrence <= expected:
+        return 0.0
+
+    k11 = cooccurrence
+    k12 = source_count - cooccurrence
+    k21 = target_count - cooccurrence
+    k22 = TOTAL_POSTS - source_count - target_count + cooccurrence
+
+    if min(k11, k12, k21, k22) < 0:
+        return 0.0
+
+    row1 = k11 + k12
+    row2 = k21 + k22
+    col1 = k11 + k21
+    col2 = k12 + k22
+
+    score = 0.0
+    for observed, expected_cell in (
+        (k11, row1 * col1 / TOTAL_POSTS),
+        (k12, row1 * col2 / TOTAL_POSTS),
+        (k21, row2 * col1 / TOTAL_POSTS),
+        (k22, row2 * col2 / TOTAL_POSTS),
+    ):
+        if observed > 0 and expected_cell > 0:
+            score += observed * math.log(observed / expected_cell)
+
+    return 2.0 * score
+
+
 def score_pair(
     metric: str,
     source_count: float,
@@ -70,6 +111,19 @@ def score_pair(
         case "cosine":
             denominator = math.sqrt(source_count * target_count)
             return cooccurrence / denominator if denominator > 0 else 0.0
+        case "smoothed_cosine":
+            denominator = math.sqrt(source_count * target_count)
+            cosine = cooccurrence / denominator if denominator > 0 else 0.0
+            smoothing = cooccurrence / (SMOOTHED_COSINE_K + cooccurrence)
+            return cosine * smoothing
+        case "cosine_jaccard":
+            denominator = math.sqrt(source_count * target_count)
+            cosine = cooccurrence / denominator if denominator > 0 else 0.0
+            union = source_count + target_count - cooccurrence
+            jaccard = cooccurrence / union if union > 0 else 0.0
+            return cosine * jaccard
+        case "llr":
+            return log_likelihood_ratio(source_count, target_count, cooccurrence)
         case _:
             raise ValueError(f"Unknown metric: {metric}")
 

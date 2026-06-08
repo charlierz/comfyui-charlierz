@@ -8,17 +8,22 @@ from pathlib import Path
 
 CHARACTER_CATEGORY = "4"
 GENERAL_CATEGORY = "0"
-DEFAULT_TOP_N = 100
+DEFAULT_TOP_N: int | None = None
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
-            "Writes one TSV line per Danbooru character tag as "
-            "character<TAB>general_tag_1,general_tag_2,..."
+            "Writes character TSV rows as "
+            "tag<TAB>count<TAB>general_tag_1,general_tag_2,..."
         )
     )
-    parser.add_argument("--top-n", type=int, default=DEFAULT_TOP_N)
+    parser.add_argument(
+        "--top-n",
+        type=int,
+        default=DEFAULT_TOP_N,
+        help="Maximum related tags per character. Defaults to no clipping.",
+    )
     parser.add_argument("tags_csv", type=Path)
     parser.add_argument("cooccurrence_csv", type=Path)
     parser.add_argument("output_tsv", type=Path)
@@ -49,7 +54,7 @@ def load_tags(tags_csv: Path) -> tuple[dict[str, int], set[str]]:
 def main() -> None:
     args = parse_args()
 
-    if args.top_n < 1:
+    if args.top_n is not None and args.top_n < 1:
         raise ValueError("--top-n must be a positive integer")
     if not args.tags_csv.exists():
         raise FileNotFoundError(f"Tags CSV not found: {args.tags_csv}")
@@ -82,9 +87,19 @@ def main() -> None:
 
     args.output_tsv.parent.mkdir(parents=True, exist_ok=True)
     with args.output_tsv.open("w", newline="", encoding="utf-8") as f:
+        f.write("tag\tcount\trelated\n")
         for character in characters:
-            tags = sorted(related[character], key=lambda item: (-item[0], item[1]))[: args.top_n]
-            f.write(character + "\t" + ",".join(tag for _, tag in tags) + "\n")
+            tags = sorted(related[character], key=lambda item: (-item[0], item[1]))
+            if args.top_n is not None:
+                tags = tags[: args.top_n]
+            f.write(
+                character
+                + "\t"
+                + str(character_counts[character])
+                + "\t"
+                + ",".join(tag for _, tag in tags)
+                + "\n"
+            )
 
     print(f"Wrote {len(characters)} character rows to {args.output_tsv}")
 

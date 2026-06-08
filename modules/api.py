@@ -90,17 +90,33 @@ def _split_tags(text: str) -> list[str]:
 
 
 def _read_tsv_keys(path: str) -> list[str]:
+    keys: list[str] = []
     with open(path, "r", encoding="utf-8") as f:
-        return [line.partition("\t")[0].strip() for line in f if line.partition("\t")[0].strip()]
+        for line_number, line in enumerate(f):
+            key = line.partition("\t")[0].strip()
+            if not key or (line_number == 0 and key == "tag"):
+                continue
+            keys.append(key)
+    return keys
 
 
 @lru_cache(maxsize=1)
 def _read_character_tags() -> dict[str, list[str]]:
     characters: dict[str, list[str]] = {}
     with open(CHARACTERS_FILE, "r", encoding="utf-8") as f:
-        for line in f:
-            character, separator, tags = line.strip().partition("\t")
-            if character and separator:
+        for line_number, line in enumerate(f):
+            columns = line.rstrip("\n").split("\t")
+            if not columns or (line_number == 0 and columns[0] == "tag"):
+                continue
+
+            if len(columns) >= 3:
+                character, tags = columns[0].strip(), columns[2]
+            elif len(columns) == 2:
+                character, tags = columns[0].strip(), columns[1]
+            else:
+                continue
+
+            if character:
                 characters[character] = _split_tags(tags)
     return characters
 

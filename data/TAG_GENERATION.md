@@ -12,7 +12,7 @@ Source CSVs are downloaded from [`newtextdoc1111/danbooru-tag-csv`](https://hugg
 - `danbooru_tags_cooccurrence.csv` — raw tag-pair cooccurrence data: `tag_a,tag_b,count`. Large local input; ignored by git.
 - `general.txt` — extracted general tag list.
 - `copyrights.txt` — extracted copyright/franchise tag list.
-- `characters.tsv` — character tags mapped to related general tags, sorted by character popularity/count descending.
+- `characters.tsv` — character tags mapped to all related general tags with Danbooru character counts, sorted by character popularity/count descending.
 
 ## Scripts
 
@@ -52,6 +52,8 @@ Generate character tags:
 ```bash
 ./scripts/generate_characters.py danbooru_tags.csv danbooru_tags_cooccurrence.csv characters.tsv
 ```
+
+This writes `tag<TAB>count<TAB>related` and does not clip related tags by default. Use `--top-n` only for analysis or alternate clipped outputs.
 
 After editing `tag_categories/*.txt`, re-sort the category files, then regenerate related-tag TSVs:
 

@@ -111,6 +111,7 @@ Scene/background buckets:
 - `scene/bg/plants.tsv` — plants, flowers, trees, leaves, petals, and gardens.
 - `scene/bg/water.tsv` — water, beaches, oceans, boats, and water-adjacent props.
 - `scene/objects.tsv` — general props and object subject matter.
+- `scene/weapons.tsv` — weapons and weapon-like props: `sword`, `gun`, `rifle`, `knife`, `staff`, `polearm`.
 - `scene/subject_matter.tsv` — broad subject/composition tags, including people-count and gender-composition tags: `1girl`, `solo`, `multiple girls`, `1other`.
 - `scene/food_drink.tsv` — food, drink, tableware, and food packaging.
 - `scene/animals.tsv` — animals and animal subjects.
@@ -186,7 +187,7 @@ for p in Path('data/tag_pools').rglob('*.tsv'):
         if line.strip():
             pool.add(line.split('\t')[0])
 
-for category in ['actions_poses', 'appearance_anatomy', 'expressions', 'scene_background', 'style_quality', 'themes_roles']:
+for category in ['actions_poses', 'appearance_anatomy', 'expressions', 'scene_background', 'style_quality', 'themes_roles', 'clothing_accessories']:
     tags = [
         line.strip().replace('_', ' ')
         for line in Path(f'data/tag_categories/{category}.txt').read_text().splitlines()

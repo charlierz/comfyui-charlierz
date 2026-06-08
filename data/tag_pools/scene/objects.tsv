@@ -1,23 +1,49 @@
 tag	count	related
 book	101012	
+phone	80128	
+umbrella	68990	
 stuffed toy	65362	
+cellphone	64331	
+bottle	58857	
 feathers	56832	
 stuffed animal	53370	
+smartphone	45673	
 box	44188	
+rope	42397	
+instrument	39484	
 spikes	34330	
+microphone	34177	
+hand fan	33180	
+swim ring	31500	
+gift	30959	
+ball	30925	
 tray	30222	
+bowl	22588	
 cigarette	22495	
+broom	22414	
+poke ball	21948	
 can	21852	
 tiles	21463	
 lantern	21402	
+teddy bear	21249	
 paper	21240	
 rock	20814	
 ghost	20428	
 open book	20376	
+machinery	20354	
+card	19751	
+sign	18603	
+ofuda	17792	
 gift box	17429	
 camera	16851	
+id card	16695	
+holding fan	15811	
 folding fan	15779	
 duel monster	15642	
+pen	15110	
+anchor symbol	14995	
+controller	14930	
+doll	14833	
 clock	14793	
 beachball	14589	
 guitar	14301	
@@ -28,17 +54,23 @@ candle	13807
 lamp	13650	
 jack-o'-lantern	13121	
 shade	13029	
+holding instrument	12960	
 balloon	12849	
 key	12464	
+heart of string	12332	
 bucket	12048	
 hitodama	11814	
 stuffed rabbit	11748	
 space	11408	
+oil-paper umbrella	11403	
+holding bouquet	11178	
 computer	10643	
 sack	10108	
 torii	10065	
 monitor	9667	
+string	9660	
 photo (object)	9542	
+game controller	9257	
 stool	9236	
 coin	9064	
 playing card	8980	
@@ -47,6 +79,7 @@ picture frame	8264
 chalkboard	8194	
 pencil	8091	
 television	7942	
+whistle	7810	
 power lines	7736	
 sakazuki	7641	
 cushion	7433	
@@ -67,15 +100,19 @@ laptop	5873
 poster (object)	5710	
 teardrop	5554	
 notebook	5419	
+red rope	5375	
 slime (substance)	5338	
 money	5305	
 hose	5266	
 armchair	5240	
 computer keyboard	5235	
 trading card	5210	
+paper fan	5122	
 doorway	5121	
+whistle around neck	5019	
 lock	5015	
 tablet pc	5011	
+microphone stand	4983	
 ladle	4947	
 kotatsu	4943	
 throne	4918	
@@ -84,6 +121,7 @@ test tube	4812
 white feathers	4807	
 tissue box	4788	
 gourd	4758	
+closed umbrella	4713	
 hydrangea	4694	
 painting (object)	4603	
 scope	4579	
@@ -94,12 +132,14 @@ snowman	4331
 remote control	4330	
 stick	4309	
 chewing gum	4268	
+folded fan	4258	
 gears	4196	
 letter	4120	
 shouji	4046	
 christmas ornaments	4019	
 envelope	3942	
 paper bag	3892	
+gold chain	3823	
 flight deck	3797	
 earth (planet)	3795	
 constellation	3780	
@@ -109,8 +149,10 @@ debris	3770
 trash can	3752	
 game console	3732	
 stylus	3731	
+briefcase	3688	
 smokestack	3623	
 lotion	3565	
+glowstick	3563	
 sushi	3556	
 danmaku	3545	
 banner	3542	
@@ -124,19 +166,25 @@ shower head	3431
 trefoil	3422	
 spill	3399	
 needle	3396	
+stethoscope	3396	
 sheep	3387	
 embers	3381	
+cellphone photo	3367	
 stuffed cat	3336	
 banana	3332	
 dice	3309	
 baozi	3275	
+feather trim	3262	
 dusk	3254	
 cheese	3225	
 flask	3210	
+purple umbrella	3198	
+bass guitar	3190	
 map	3181	
 frying pan	3180	
 plastic bag	3157	
 piano	3138	
+red umbrella	3114	
 toy	3108	
 sink	3106	
 pill	3105	
@@ -165,6 +213,7 @@ treble clef	2808
 pudding	2795	
 moss	2791	
 newspaper	2788	
+holding lantern	2779	
 drone	2774	
 mochi	2772	
 shikishi	2762	
@@ -172,13 +221,16 @@ white theme	2756
 enpera	2747	
 paint	2719	
 rug	2714	
+transparent umbrella	2713	
 darkness	2706	
+instrument case	2699	
 mop	2694	
 shaved ice	2684	
 counter	2675	
 puppet	2626	
 surfboard	2582	
 calendar (object)	2578	
+spatula	2548	
 tombstone	2502	
 string of flags	2498	
 skewer	2481	
@@ -202,6 +254,7 @@ morning	2337
 pig	2334	
 ace (playing card)	2333	
 cabinet	2330	
+magazine (object)	2325	
 footprints	2313	
 wire	2313	
 panda	2309	
@@ -235,6 +288,7 @@ birdcage	2139
 toast	2133	
 baguette	2132	
 nail (hardware)	2122	
+ofuda on clothes	2101	
 video camera	2099	
 figure	2093	
 overgrown	2081	
@@ -245,6 +299,7 @@ ufo	2046
 omurice	2034	
 holding hose	2013	
 air conditioner	1991	
+star sticker	1987	
 skyline	1986	
 tarot	1980	
 tissue	1979	
@@ -264,7 +319,9 @@ tulip	1878
 pavement	1864	
 grey tail	1862	
 fumo (doll)	1852	
+flip phone	1850	
 squirrel	1845	
+white umbrella	1841	
 board game	1840	
 tube	1809	
 warship	1808	
@@ -284,6 +341,7 @@ destruction	1763
 wisteria	1756	
 screen	1735	
 baseball	1729	
+holding tablet pc	1728	
 kettle	1724	
 hamster	1719	
 cockpit	1712	
@@ -319,6 +377,8 @@ in bucket	1581
 heartbeat	1580	
 volleyball (object)	1577	
 tent	1572	
+handkerchief	1570	
+holding riding crop	1563	
 foliage	1562	
 dumbbell	1538	
 mixing bowl	1536	
@@ -342,6 +402,7 @@ hagoita	1471
 club (shape)	1464	
 chest of drawers	1458	
 log	1452	
+star ornament	1451	
 dowsing rod	1446	
 sausage	1441	
 champagne	1434	
@@ -360,6 +421,7 @@ trash bag	1401
 lighter	1399	
 tempura	1392	
 flock	1391	
+school briefcase	1390	
 rolling suitcase	1386	
 scooter	1373	
 crane (machine)	1366	
@@ -367,6 +429,7 @@ haniwa (statue)	1363
 round-bottom flask	1361	
 saw	1361	
 makizushi	1357	
+black umbrella	1356	
 thread	1351	
 daruma doll	1339	
 campfire	1333	
@@ -377,6 +440,7 @@ sundae	1320
 video game	1308	
 canvas (object)	1306	
 corded phone	1301	
+rope belt	1299	
 party popper	1296	
 cutting board	1290	
 rook (chess)	1288	
@@ -385,6 +449,7 @@ ace of hearts	1287
 chalk	1283	
 christmas present	1282	
 floating weapon	1277	
+coin on string	1276	
 pasta	1275	
 morning glory	1270	
 soup	1269	
@@ -400,7 +465,10 @@ bishop (chess)	1230
 queen (chess)	1230	
 chemical structure	1229	
 spray can	1229	
+oversized breast cup	1227	
 cow	1220	
+chain headband	1219	
+holding letter	1219	
 analog clock	1213	
 mahjong tile	1210	
 picnic	1207	
@@ -412,6 +480,7 @@ grand piano	1189
 king (chess)	1187	
 shikigami	1182	
 wheat	1180	
+holding suitcase	1176	
 origami	1174	
 crt	1169	
 screwdriver	1168	
@@ -441,6 +510,7 @@ bud	1081
 icing	1079	
 teruterubouzu	1078	
 hologram	1076	
+hair dryer	1073	
 hammock	1071	
 crayon	1069	
 amplifier	1068	
@@ -450,6 +520,7 @@ tanzaku	1064
 eggplant	1063	
 napkin	1063	
 snowball	1060	
+holding lipstick tube	1056	
 playstation portable	1054	
 machine	1053	
 telescope	1043	
@@ -461,7 +532,9 @@ foam	1017
 pinwheel	1013	
 whiskey	1012	
 galaxy	1010	
+ofuda on head	1010	
 child's drawing	1009	
+pink umbrella	1008	
 screw	1007	
 toast in mouth	1007	
 boar	1006	
@@ -469,14 +542,17 @@ yarn ball	1005
 bulletin board	1000	
 doily	1000	
 porch	995	
+sorcerer's sutra scroll	993	
 beans	989	
 windowsill	988	
 exercise ball	987	
 crane game	986	
 omikuji	984	
+spell card	980	
 brick	978	
 grill	971	
 swiss roll	970	
+holding bow (music)	965	
 seaweed	965	
 spoiler (automobile)	963	
 tongs	960	
@@ -488,7 +564,9 @@ pigeon	948
 planet hair ornament	948	
 maneki-neko	946	
 spaghetti	946	
+wallet	944	
 duckling	943	
+blue umbrella	942	
 shrimp tempura	942	
 mochi trail	938	
 floating book	937	
@@ -500,11 +578,14 @@ audience	922
 butter	919	
 loaded interior	913	
 art brush	909	
+nib pen (object)	906	
 crystal ball	902	
 lute (instrument)	900	
 milky way	898	
+holding briefcase	897	
 cream on face	896	
 papers	891	
+ball and chain restraint	889	
 drum (container)	889	
 game boy	888	
 heads-up display	888	
@@ -513,7 +594,11 @@ cd	887
 wallpaper (object)	884	
 reindeer	880	
 jaguar print	879	
+undersized breast cup	867	
+cellphone charm	865	
 cola	864	
+frilled umbrella	864	
+holding bra	864	
 antique phone	858	
 sparrow	857	
 mannequin	856	
@@ -535,6 +620,7 @@ sugar cube	824
 pregnancy test	818	
 menu board	817	
 net	816	
+bust cup	813	
 acorn	812	
 harp	812	
 jeweled branch of hourai	812	
@@ -552,8 +638,11 @@ nintendo ds	796
 pastry bag	796	
 crowbar	791	
 onion	790	
+smartphone case	789	
 floating rock	788	
 red carpet	787	
+holding scroll	786	
+holding spatula	786	
 dawn	784	
 goat	782	
 urinal	775	
@@ -563,10 +652,12 @@ ticket	767
 rust	763	
 salad	762	
 kaname-ishi	760	
+ultra ball	758	
 trophy	754	
 van	749	
 joystick	747	
 tripod	746	
+holding photo	745	
 ipod	745	
 parrot	745	
 ambiguous red liquid	744	
@@ -584,6 +675,7 @@ locomotive	735
 splatter	735	
 kamaboko	734	
 billboard	733	
+electric bass guitar	732	
 fern	731	
 chili pepper	729	
 grave	729	
@@ -601,6 +693,7 @@ holding map	713
 masu	712	
 mount fuji	710	
 fluorescent lamp	705	
+floating card	701	
 weights	700	
 mousetrap	699	
 orca	699	
@@ -621,6 +714,7 @@ fender stratocaster	680
 bee	678	
 dream soul	675	
 inflatable whale	673	
+holding marker	672	
 variable fighter	672	
 chrysanthemum	671	
 raccoon	668	
@@ -633,6 +727,7 @@ hook	662
 lane line	662	
 nintendo 3ds	662	
 cash register	661	
+star wand	661	
 dragonfly	660	
 ferret	659	
 stuffed dog	659	
@@ -642,9 +737,13 @@ bass clef	651
 blob	651	
 broccoli	651	
 pitcher (container)	647	
+throat microphone	647	
 creature on head	646	
 rotary phone	645	
+holding glowstick	644	
 poke ball (legends)	643	
+ear chain	641	
+drum magazine	640	
 price tag	640	
 microwave	639	
 bolt (hardware)	638	
@@ -656,6 +755,7 @@ model kit	636
 stuffed panda	632	
 movie poster	631	
 plumeria	631	
+purple rope	631	
 wafer stick	631	
 battleship	630	
 erlenmeyer flask	629	
@@ -676,9 +776,11 @@ grey bag	613
 oven	613	
 phoenix	609	
 narutomaki	608	
+holding notepad	606	
 flagpole	603	
 vodka	598	
 eel	592	
+nail polish bottle	589	
 manta ray	588	
 banana peel	587	
 stuffed unicorn	587	
@@ -688,6 +790,7 @@ mimic chest	583
 drain (object)	582	
 groceries	582	
 bald eagle	579	
+holding candle	579	
 digital thermometer	569	
 grease (mechanical)	569	
 temari ball	569	
@@ -706,6 +809,7 @@ kadomatsu	556
 rattle	555	
 tooth	555	
 awning	552	
+critter pick (honkai: star rail)	550	
 kitten	550	
 large syringe	547	
 beaker	546	
@@ -721,11 +825,15 @@ mud	536
 mousepad (object)	534	
 ring-con	532	
 hanging scroll	530	
+holding feather	527	
 depth charge	521	
 gingerbread man	519	
+holding crowbar	519	
+holding milk carton	519	
 polaroid photo	519	
 puppet rings	519	
 rubik's cube	518	
+ofuda between fingers	516	
 map (object)	515	
 senbei	514	
 signpost	513	
@@ -735,16 +843,20 @@ cheese trail	506
 oar	506	
 dirigible	505	
 flat screen tv	505	
+holding watering can	505	
 yakisoba	504	
 worm	503	
 traffic	498	
+yellow umbrella	497	
 planted umbrella	496	
 senkou hanabi	496	
 tarot card	496	
 buried	495	
+holding jar	495	
 iv stand	492	
 joker (playing card)	491	
 angelfish	489	
+holding pendulum	489	
 muffin	488	
 soy sauce	488	
 toothpaste	488	
@@ -769,10 +881,12 @@ wok	474
 chisel	473	
 wooden box	472	
 hay	471	
+holding club	471	
 liquor	471	
 mane	471	
 maracas	471	
 board eraser	470	
+pen in pocket	470	
 yatai	470	
 ammunition box	469	
 battlefield	469	
@@ -785,9 +899,11 @@ toothpick	466
 incense	465	
 bellflower	463	
 daikon	463	
+spiked ball and chain	462	
 core	461	
 fishbowl	461	
 mansion	461	
+holding bass guitar	460	
 persimmon	460	
 stuffed whale	460	
 container	459	
@@ -802,11 +918,13 @@ camping	447
 cue stick	447	
 milkshake	446	
 tennis court	446	
+instrument on back	443	
 shopping basket	443	
 hawk	442	
 kebab	442	
 pear	442	
 boxing ring	440	
+super star (mario)	440	
 mazda	439	
 love hotel	438	
 satellite dish	435	
@@ -823,12 +941,14 @@ getabako	427
 slide	427	
 cymbals	426	
 hanafuda	425	
+holding palette	425	
 entrance	423	
 tanghulu	423	
 canister	422	
 diorama	422	
 waffle	421	
 windsock	421	
+chain around arm	420	
 handlebar	420	
 handrail	420	
 ice crystal	419	
@@ -846,21 +966,28 @@ swing set	411
 double scoop	409	
 mistletoe	408	
 sleeping bag	408	
+sign around neck	406	
 grate	404	
 sprout	403	
+holding mahjong tile	402	
 baseball (object)	401	
 paperclip	400	
+holding cookie	399	
+holding string	399	
 starting block	399	
 stuffed sheep	399	
 underground	399	
 cathedral	398	
 biplane	396	
+holding handkerchief	396	
 stuffed octopus	396	
 subway	396	
 treasure	395	
 yoga mat	395	
 empty picture frame	394	
+holding stethoscope	394	
 silent princess	394	
+holding calligraphy brush	393	
 pliers	393	
 seed	391	
 flood	390	
@@ -869,20 +996,26 @@ kindergarten	387
 bell pepper	386	
 cave interior	384	
 escalator	384	
+green umbrella	383	
 pinecone	383	
 stuffed fish	383	
+gift wrapping	382	
 basin	381	
 boombox	381	
 crater	381	
+holding pumpkin	381	
 noren	381	
 in orbit	379	
 tankard	379	
 target	379	
 medicine	378	
+holding orb	377	
 sailboat	377	
 starfighter	377	
 taiko drum	377	
+clow card	375	
 great pyrenees	375	
+ofuda on nipples	375	
 lunchbox	374	
 saturn (planet)	374	
 battery	373	
@@ -891,18 +1024,24 @@ overhead line	373
 spire	371	
 camera flash	370	
 goose	370	
+holding flashlight	370	
 clam	369	
 cream puff	369	
 pink tulip	369	
 credit card	368	
+holding earphones	368	
 ikayaki	368	
 puzzle piece	368	
 turntable	368	
 salt shaker	367	
+book holster	366	
 chaise longue	366	
 shampoo	366	
+star censor	366	
 feather duster	364	
+holding headphones	363	
 kite	363	
+holding pastry bag	361	
 lobster	361	
 poker	360	
 recycle bin	360	
@@ -917,6 +1056,7 @@ folding screen	355
 tropical	355	
 farm	353	
 riverbank	352	
+holding chalk	351	
 flying nimbus	350	
 lantern festival	350	
 minimap	350	
@@ -924,12 +1064,16 @@ crutch	349
 grasslands	349	
 sculpture	349	
 tokyo big sight	348	
+chain belt	347	
 koban (gold)	347	
 mortar (bowl)	345	
+holding magazine	344	
 tako-san wiener	344	
 crustacean	343	
+holding coat	343	
 pansy	343	
 mattress	342	
+holding cape	341	
 hotpot	341	
 laundromat	341	
 manhole cover	341	
@@ -938,16 +1082,25 @@ vegetation	339
 engine	337	
 paint tube	335	
 robotic vacuum cleaner	334	
+holding wallet	333	
+no entry sign	333	
 cracked screen	332	
 breast mousepad	331	
+holding unworn skirt	328	
 multiple cats	328	
+camera phone	326	
 cassette tape	326	
 gelatin	326	
 portable stove	326	
+in bottle	325	
 spool	324	
 block (object)	320	
 bmw	320	
+holding star	319	
+saigyouji yuyuko's fan design	319	
 charging device	318	
+holding cage	318	
+bottle to cheek	317	
 pile of books	317	
 punching bag	317	
 jack daniel's	316	
@@ -955,43 +1108,63 @@ utensil	316
 asteroid	314	
 axolotl	314	
 open box	314	
+holding hair dryer	313	
 dew drop	312	
 cheesecake	311	
 stuffed lion	311	
+pill bottle	310	
+string around finger	310	
 bear trap	309	
 disco ball	309	
 grandfather clock	309	
+team star	308	
 capybara	307	
 piglet	307	
 tyrannosaurus rex	307	
+wireless sex toy controller	307	
 decorations	305	
+holding butterfly net	305	
+holding unworn dress	305	
 chupa chups	304	
 luxury ball	304	
 marble (toy)	304	
 bible (object)	303	
 cold pack	303	
+card between breasts	302	
+holding boots	302	
+holding case	302	
 lemonade	302	
 studio microphone	302	
+holding tongs	301	
+yen sign	300	
 playstation 4	299	
 warp pipe	299	
 baking sheet	298	
 typewriter	296	
 creamer (vessel)	295	
+holding ring	295	
 matches	295	
 miso soup	295	
 traffic barrier	295	
 billiards	294	
+holding flamethrower	294	
+holding mushroom	294	
 washbowl	294	
 big dipper	292	
 nest	292	
 pop filter	292	
 headboard	291	
+holding bone	291	
+holding cooking pot	291	
+dark orb (madoka magica)	290	
+in cage	290	
 nabe	290	
 praying mantis	290	
 wainscoting	290	
 charger	289	
 powered wheelchair	289	
 slipper bathtub	289	
+holding drinking straw	288	
 flashbang	287	
 flying whale	287	
 great ball	287	
@@ -1014,6 +1187,9 @@ oden	283
 gashapon	282	
 nesoberi	282	
 video call	282	
+star cutout	281	
+holding gourd	279	
+holding hand grip	279	
 arcade stick	278	
 hanging lantern	278	
 latte art	278	
@@ -1031,6 +1207,7 @@ flamingo	273
 floatplane	273	
 jet airliner	273	
 satellite	273	
+holding spork	272	
 weight	272	
 blue hawaii	271	
 book on head	271	
@@ -1048,49 +1225,69 @@ valley	264
 vespa	264	
 nissan skyline	263	
 power strip	263	
+feather fan	262	
 tapir	262	
 fender jazzmaster	261	
 wardrobe	260	
 porsche	259	
 floral arch	258	
 pincushion	258	
+sharp sign	258	
 cigarette butt	257	
+holding screwdriver	257	
 long-tailed tit	257	
 mercedes-benz	257	
 croquette	256	
 floppy disk	256	
+holding golf club	256	
 teabag	256	
 battle standard	255	
 basketball court	254	
 grief seed	254	
+holding bento	254	
 soba	254	
 walkman	254	
 wax	254	
 yakitori	254	
 chikuwa	253	
 dobermann	252	
+hand fan writing	252	
 peacock	252	
 alpaca	251	
+holding anchor	251	
+holding chess piece	251	
 tennis net	251	
 peanut	250	
+phone with ears	250	
 poop	250	
 salt	250	
 birthday party	249	
 block (minecraft)	249	
 gerbera	249	
+holding walkie-talkie	249	
 steamed bun	249	
+flat chastity cage	248	
+holding bullet	248	
+holding trophy	248	
 incense burner	247	
+dive ball	246	
+holding folder	246	
 lamb	246	
+holding ticket	245	
 taco	245	
 wagon	245	
 pincers	244	
 ferrari	243	
 rhinoceros beetle	243	
+spike ball	242	
 breakfast	241	
 erhu	241	
 go (board game)	241	
+holding scale	241	
 marijuana	240	
 dollar bill	239	
+holding rattle	239	
+holding shuriken	239	
 shipping container	239	
 green pepper	238	
 pie slice	238	
@@ -1110,8 +1307,10 @@ shipwreck	233
 ukulele	233	
 ashes	231	
 baby's-breath	231	
+holding legwear	231	
 keytar	231	
 scone	231	
+holding eyeball	230	
 scarecrow	230	
 shibuya (tokyo)	230	
 wafer	230	
@@ -1119,6 +1318,7 @@ exhaust pipe	229
 money bag	228	
 reeds	228	
 barbie mugshot (meme)	227	
+binaural microphone	227	
 holding lamp	227	
 instant udon	227	
 miniature	227	
@@ -1126,14 +1326,18 @@ rifle cartridge	227
 witch's labyrinth	227	
 7-eleven	226	
 stepladder	226	
+card in mouth	225	
 diner	225	
 fossil	225	
+holding rabbit	225	
 sanbou	225	
 sandbag	225	
 candle wax	224	
+holding shell	224	
 stalactite	224	
 game boy advance	223	
 grilled eel	223	
+holding nail	223	
 instant soba	223	
 meatball	223	
 super famicom	223	
@@ -1143,18 +1347,25 @@ mazda rx-7	222
 postage stamp	222	
 slot machine	222	
 taxi	221	
+waist poke ball	221	
 wii	221	
+card game	220	
+holding ofuda	220	
 photo album	220	
 hatch	219	
+holding party popper	219	
 muntins	219	
+holding sheet	218	
 sewing machine	218	
 snowscape	218	
 clock hands	216	
+holding sandals	216	
 isopod	216	
 ohitsu	216	
 lego	215	
 pile of skulls	215	
 textbook	215	
+transparent fan	215	
 voodoo doll	215	
 waffle cone	215	
 diary	214	
@@ -1171,6 +1382,7 @@ multiple moons	212
 herb	211	
 triple scoop	211	
 bunting	210	
+holding bomb	210	
 string phone	210	
 treadmill	210	
 airpods	209	
@@ -1179,15 +1391,22 @@ frisbee	209
 hippopotamus	209	
 fly agaric	208	
 garlic	208	
+holding doughnut	208	
+holding snowball	208	
 kerosene heater	208	
 flour	207	
+holding candy cane	207	
+holding tennis racket	207	
 pringles can	206	
+holding id card	205	
 inflatable shark	205	
 lantern on liquid	204	
 lectern	204	
 stationery	204	
 french cruller	203	
 gamecube	203	
+holding cable	203	
+master ball	203	
 webcam	203	
 clothes rack	202	
 double helix	202	
@@ -1198,9 +1417,13 @@ overpass	201
 videocassette	201	
 bust (sculpture)	200	
 exercise machine	200	
+holding boxcutter	200	
+holding utensil	200	
+white rope	200	
 ferris wheel interior	198	
 frappuccino	198	
 ironwork	198	
+monocle chain	198	
 turnip	198	
 sewer grate	197	
 tornado	197	
@@ -1210,44 +1433,59 @@ iron bars	195
 jigsaw puzzle	195	
 corner	194	
 ice shard	194	
+soy sauce bottle	194	
 kokeshi	193	
 skis	193	
 stuffed dragon	193	
 moai	192	
 tiger cub	192	
+holding kettle	191	
 jupiter (planet)	191	
 kerosene lamp	191	
 trailer	191	
+holding dice	190	
+holding heart (organ)	190	
 stepping stones	190	
 toaster	190	
 animation paper	189	
+chain between breasts	189	
 cicada	189	
 gift card	189	
 golden retriever	189	
+holding lead pipe	189	
+holding wreath	189	
 mandrake	189	
 news	189	
 oreo	189	
+origami bird (honkai: star rail)	189	
 roulette	189	
 ashiyu	188	
 jet ski	188	
 pile	188	
+premier ball	188	
 sesame seeds	188	
 gondola	187	
 gyuudon	187	
+cum in bowl	186	
 dvd case	186	
 gauge	186	
+improvised umbrella	186	
 insect cage	186	
 vent (object)	186	
 angel statue	185	
 ice bucket	185	
 tic-tac-toe	185	
 top-load washing machine	185	
+glowing feather	184	
+holding drawing	183	
 effects pedal	182	
+holding laptop	182	
 olive	182	
 tortoise	182	
 xbox 360	182	
 old maid	181	
 playstation 2	181	
+holding bow (ornament)	180	
 security camera	180	
 ham	179	
 hishimochi	179	
@@ -1259,16 +1497,21 @@ electric kettle	178
 rebar	178	
 sega dreamcast	178	
 conveyor belt	177	
+holding cleaver	176	
 hookah	176	
 safety razor	176	
 stuffed fox	176	
 bedroll	175	
 blister pack	175	
+holding rock	175	
 pantograph	175	
 toy block	175	
 afterburner	174	
 catfish	174	
 dualsense	174	
+holding sickle	174	
+holding tripod	174	
+sitting on ball	174	
 synthesizer	174	
 diving helmet	173	
 floorplan	173	
@@ -1291,12 +1534,15 @@ garnish	168
 haagen-dazs	168	
 anpan	167	
 corrugated galvanized iron sheet	167	
+holding cigarette pack	167	
 manhole	167	
 marble (stone)	167	
 serving dome	167	
 toyota sprinter trueno	167	
+holding oar	166	
 sunflower seed	166	
 action figure	165	
+holding dumbbell	165	
 karaoke box	165	
 marriage certificate (object)	165	
 pew	165	
@@ -1312,6 +1558,7 @@ construction	162
 dinner	162	
 drinking fountain	162	
 handheld electric fan	162	
+love ball	162	
 matryoshka doll	162	
 nut (hardware)	162	
 otoshidama	162	
@@ -1330,10 +1577,14 @@ daifuku	159
 dartboard	159	
 packet	159	
 hacksaw	158	
+holding ruler	158	
+holding thermometer	158	
 in bathtub	158	
 roe	158	
 stuffed pig	158	
 dustpan	157	
+anal ball wear	156	
+holding chibi	156	
 pillbug	156	
 pitfall	156	
 pterosaur	156	
@@ -1344,8 +1595,10 @@ f-14 tomcat	155
 flags of all nations	155	
 okonomiyaki	155	
 porsche 911	155	
+women's wallet	155	
 banana slice	154	
 censer	154	
+doqute stuffed doll	154	
 jet engine	154	
 march	154	
 mixing console	154	
@@ -1355,6 +1608,7 @@ spinning top	154
 stag beetle	154	
 diving regulator	153	
 doormat	153	
+exposed internal machinery	153	
 gas can	153	
 hell	153	
 meal	153	
@@ -1362,6 +1616,8 @@ sugar bowl	153
 super famicom gamepad	153	
 tuba	153	
 chihuahua	152	
+holding picture frame	152	
+holding turret	152	
 honda super cub	152	
 in cell	152	
 mapo tofu	152	
@@ -1375,6 +1631,8 @@ playstation 3	150
 wash cloth	150	
 blender (object)	149	
 broken screen	149	
+business card	148	
+holding shoe	148	
 marshall amplification	148	
 mural	148	
 nissin donbei	148	
@@ -1387,10 +1645,14 @@ wooden stool	147
 auction	146	
 dorayaki	146	
 recording studio	146	
+gamecube controller	145	
 stuffed duck	145	
 carabiner	144	
+card holster	144	
+cellphone strap	144	
 dough	144	
 hip flask	144	
+holding sandwich	143	
 martini	143	
 tarpaulin	143	
 akihabara (tokyo)	142	
@@ -1399,10 +1661,12 @@ coaster	142
 digital camera	142	
 fiat	142	
 fingerprint	142	
+id photo	142	
 mikan box	142	
 nail clippers	142	
 pump	142	
 wooden pencil	141	
+holding vial	140	
 japanese cylindrical postbox	140	
 magnolia	140	
 privacy screen	140	
@@ -1415,15 +1679,19 @@ pug	139
 ring (sonic)	139	
 switch	139	
 cereal	138	
+cerise bouquet	138	
 character snowman	138	
 computer chip	138	
 crowded	138	
 electronic cigarette	138	
 harmonica	138	
+holding snowman	138	
 landing gear	138	
+on mecha	138	
 radar dish	138	
 receipt	138	
 tokyo skytree	138	
+xbox controller	138	
 dance studio	137	
 furnace	137	
 german shepherd	137	
@@ -1431,15 +1699,20 @@ nintendo 64	137
 soybean	137	
 tv show	137	
 urn	137	
+war fan	137	
 yogurt	137	
+ardor blossom star (e.g.o)	136	
 celestial globe	136	
 chopstick rest	136	
 inarizushi	136	
 ledge	136	
+palette suit	136	
 pork	136	
+tera orb	136	
 transverse flute	136	
 wasp	136	
 circus	135	
+grey umbrella	135	
 kettenkrad	135	
 moped	135	
 open cockpit	135	
@@ -1449,7 +1722,10 @@ volkswagen beetle	135
 wasabi	135	
 wicker basket	135	
 graphics card	134	
+holding belt	134	
+holding manga	134	
 jerry can	134	
+star pin	134	
 walkway	134	
 file cabinet	133	
 radiator	133	
@@ -1459,12 +1735,15 @@ palace	132
 qinghua (porcelain)	132	
 anvil	131	
 countdown timer	131	
+holding feet	131	
 solar system	131	
 swiss cheese	131	
+holding cue stick	130	
 honeypot	130	
 koto (instrument)	130	
 mango	130	
 marigold	130	
+nintendo 64 controller	130	
 smoothie	130	
 stone tablet	130	
 stuffed horse	130	
@@ -1472,10 +1751,13 @@ cruiser	129
 dial	129	
 dojo	129	
 file	129	
+holding mistletoe	129	
+holding sewing needle	129	
 holographic touchscreen	129	
 shoebill	129	
 x-ray film	129	
 clapperboard	128	
+holding drawing tablet	128	
 molten metal	128	
 red carnation	128	
 sheaf	128	
@@ -1491,6 +1773,7 @@ pokemon center	127
 stroller	127	
 mini cooper	126	
 on banana	126	
+orange umbrella	126	
 piggy bank	126	
 purikura	126	
 space shuttle	126	
@@ -1498,12 +1781,14 @@ theater seating	126
 cabin	125	
 guillotine	125	
 iceberg	125	
+pink rope	125	
 sapling	125	
 scallop	125	
 tetrapod	125	
 boiling	124	
 char-siu	124	
 gibson flying v	124	
+holding pitchfork	124	
 pile of money	124	
 scottish fold	124	
 shortcake	124	
@@ -1524,13 +1809,17 @@ kelp	122
 nintendo switch pro controller	122	
 ofuro	122	
 regal blue tang	122	
+string tie	122	
 dumpster	121	
 ford mustang	121	
 frost	121	
+holding nunchaku	121	
+holding razor	121	
 humpback whale	121	
 may	121	
 on branch	121	
 thunder	121	
+black rope	120	
 coelacanth	120	
 cucumber slice	120	
 gas cylinder	120	
@@ -1542,16 +1831,21 @@ yamaha vino	120
 bowl stack	119	
 carp	119	
 gunkanmaki	119	
+holding pill	119	
 missing poster	119	
 on piano	119	
 paris	119	
 pendulum clock	119	
+pumpkin on head	119	
 sale	119	
 soap dispenser	119	
 podium	118	
 quinzhee	118	
+souvenir doll (blue archive)	118	
 capsule	117	
 ermine	117	
+holding bandages	117	
+holding clover	117	
 nintendo switch lite	117	
 rolled up paper	117	
 steeple	117	
@@ -1573,6 +1867,7 @@ segway	115
 takeout container	115	
 deck of cards	114	
 fishing lure	114	
+holding charm	114	
 holding vase	114	
 honda civic	114	
 inkblot	114	
@@ -1585,22 +1880,28 @@ stuffed cow	114
 yamato (battleship)	114	
 alarm siren	113	
 box stack	113	
+holding crystal	113	
+holding scalpel	113	
 onion rings	113	
 transparent seat	113	
 type 89 i-gou	113	
 confessional	112	
 dreamcatcher	112	
+holding with chopsticks	112	
 ipod nano	112	
 jenga	112	
 large teddy bear	112	
 mazda mx-5	112	
+multicolored umbrella	112	
 umbrella stand	112	
+clitoris chain	111	
 fortress	111	
 junkyard	111	
 red pepper	111	
 swordfish	111	
 cutlery	110	
 f6f hellcat	110	
+holding tera orb	110	
 hoverboard	110	
 sega mega drive	110	
 structure	110	
@@ -1620,15 +1921,18 @@ shed	108
 bagel	107	
 game boy advance sp	107	
 griddle	107	
+nail polish brush	107	
 recorder case	107	
 rickenbacker 4001	107	
 stable	107	
 toaster oven	107	
 american football (object)	106	
+body chain	106	
 freezer	106	
 gardening shears	106	
 napolitan	106	
 open hatch	106	
+scroll tube	106	
 twin-lens reflex camera	106	
 wooden bathtub	106	
 baumkuchen	105	
@@ -1645,10 +1949,12 @@ igloo	104
 okamochi (container)	104	
 open drawer	104	
 pee pad	104	
+blue rope	103	
 broken umbrella	103	
 cereal box	103	
 ciao churu	103	
 cookbook	103	
+holding paper airplane	103	
 honda motocompo	103	
 japanese white-eye	103	
 nissan skyline r34	103	
@@ -1656,16 +1962,22 @@ nuclear weapon	103
 petroleum	103	
 quadcopter	103	
 tapestry	103	
+torn umbrella	103	
 bong	102	
 field radio	102	
 green screen	102	
 gummy bear	102	
+holding bandaid	102	
+holding eyepatch	102	
+oak cake roll (honkai: star rail)	102	
+star button	102	
 ambulance	101	
 coal	101	
 famicom gamepad	101	
 hinadan	101	
 in pot	101	
 plunger	101	
+boom microphone	100	
 inflatable flamingo	100	
 pamphlet	100	
 placemat	100	

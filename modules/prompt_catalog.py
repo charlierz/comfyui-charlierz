@@ -85,14 +85,20 @@ def read_tag_records() -> list[TagRecord]:
             records.append(TagRecord(label=display_tag(tag), normalized=normalized, category=category, rank=rank))
 
     if os.path.exists(CHARACTERS_FILE):
+        character_rank = 0
         with open(CHARACTERS_FILE, "r", encoding="utf-8") as f:
-            for rank, line in enumerate(f):
+            for line_number, line in enumerate(f):
                 tag = line.partition("\t")[0].strip()
+                if line_number == 0 and tag == "tag":
+                    continue
                 normalized = normalize_tag(tag)
                 if not tag or normalized in seen:
                     continue
                 seen.add(normalized)
-                records.append(TagRecord(label=display_tag(tag), normalized=normalized, category="characters", rank=rank))
+                records.append(
+                    TagRecord(label=display_tag(tag), normalized=normalized, category="characters", rank=character_rank)
+                )
+                character_rank += 1
 
     return records
 
