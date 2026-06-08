@@ -73,9 +73,12 @@ Use `face/` for facial expression, eye/mouth appearance, gaze, and static face f
 
 - `face/eye_appearance.tsv` — static eye traits: `blue eyes`, `heterochromia`, `white pupils`, `black sclera`.
 - `face/features.tsv` — static face features and facial hair: `mole under eye`, `freckles`, `beard`, `sunken cheeks`.
+- `face/cosmetics.tsv` — makeup and cosmetics: `makeup`, `lipstick`, `eyeshadow`, `eyeliner`.
 - `face/eyes.tsv` — eye actions/expressions: `closed eyes`, `one eye closed`, `raised eyebrows`.
 - `face/mouth.tsv` — mouth expressions/actions.
 - `face/gaze.tsv` — gaze direction.
+- `face/emoticons.tsv` — literal drawn face/emoticon tags only: `:3`, `;d`, `@ @`, `w`.
+- `face/symbols.tsv` — expression punctuation and spoken-symbol tags: `?`, `!`, `spoken heart`, `spoken question mark`, `zzz`.
 
 ### Clothes pools
 
@@ -153,7 +156,7 @@ for p in Path('data/tag_pools').rglob('*.tsv'):
         if line.strip():
             pool.add(line.split('\t')[0])
 
-for category in ['actions_poses', 'appearance_anatomy']:
+for category in ['actions_poses', 'appearance_anatomy', 'expressions']:
     tags = [
         line.strip().replace('_', ' ')
         for line in Path(f'data/tag_categories/{category}.txt').read_text().splitlines()
