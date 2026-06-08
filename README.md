@@ -124,9 +124,10 @@ No separate Python package installation is currently defined.
 
 The prompt helper/catalog uses checked-in curated/generated data under `data/`:
 
-- `tag_pools/**/*.tsv` — curated tag pools, source of truth for tag membership and counts
-- `characters.tsv` — generated character relationship data during transition
-- future `tag_relationships/*.tsv` — generated related-tag relationship data
+- `tag_pools/**/*.tsv` — curated prompt pools for tag membership, counts, sampling, and same-pool relatedness
+- `tag_entities/characters.tsv`, `tag_entities/franchises.tsv` — generated entity registries for autocomplete/ranking
+- `tag_relationships/character_tags.tsv` — generated character related-tag overlay
+- future `tag_relationships/related_tags.tsv` — generated non-character related-tag overlay
 
 Legacy/generated Danbooru files may still exist during migration, but are not the target source-of-truth model:
 

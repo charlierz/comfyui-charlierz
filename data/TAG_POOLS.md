@@ -22,21 +22,28 @@ Rules:
 - Rows are sorted by numeric `count` descending. Rows without counts come after counted rows and are sorted alphabetically by tag.
 - For equal numeric counts, sort alphabetically by tag.
 
-## Relationship data
+## Entity and relationship data
 
-Related tags are generated relationship data, not hand-maintained pool data.
+Keep generated entity registries and generated relationship overlays outside `data/tag_pools/`.
 
-Target relationship layout:
+Target data split:
 
 ```text
-data/tag_relationships/
-  characters.tsv
-  related_tags.tsv
+data/tag_pools/          # curated prompt pools; sampling and same-pool sibling relatedness
+  **/*.tsv              # tag<TAB>count
+
+data/tag_entities/       # generated entity registries; autocomplete/ranking only
+  characters.tsv        # tag<TAB>count
+  franchises.tsv        # tag<TAB>count
+
+data/tag_relationships/  # generated relationship overlays; no counts
+  character_tags.tsv    # tag<TAB>related
+  related_tags.tsv      # tag<TAB>related
 ```
 
-During transition, `data/characters.tsv` may still exist at the data root. It is conceptually a generated relationship file.
+Franchises/copyrights and characters should not live in `data/tag_pools/` unless they are intentionally curated as prompt pools. This prevents them from being sampled as regular pools or considered same-pool siblings for related-tag generation.
 
-Relationship files should not duplicate `count`; counts belong in `data/tag_pools/**/*.tsv` unless a separate global tag registry is intentionally introduced.
+Relationship files should not duplicate `count`; counts belong in `data/tag_pools/**/*.tsv` or `data/tag_entities/*.tsv` unless a separate global tag registry is intentionally introduced.
 
 ## Relationship to legacy `tag_categories/`
 
