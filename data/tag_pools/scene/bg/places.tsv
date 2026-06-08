@@ -1,39 +1,63 @@
 tag	count	related
+building	45580	
+stairs	20132	
+railing	19693	
 city	19651	
+fence	18296	
 onsen	16968	
 pool	16402	
 road	13198	
+bench	12749	
+architecture	11649	
 field	10687	
+east asian architecture	9315	
 ruins	9039	
 house	7932	
 bridge	7546	
+lamppost	7521	
 poolside	7503	
+pillar	6799	
 flower field	6757	
 skyscraper	6505	
+chain-link fence	6475	
+utility pole	6459	
+train interior	6335	
 street	6283	
+pole	5924	
 castle	5549	
+road sign	4731	
 tower	4593	
 school	4458	
 shop	4409	
+bar (place)	4068	
 library	3896	
 on bench	3870	
+city lights	3785	
 shrine	3755	
 rooftop	3541	
+train	3326	
+stripper pole	3090	
 restaurant	2824	
 path	2651	
 church	2586	
+balcony	2538	
 town	2413	
 office	2376	
 cafe	2361	
 against railing	2345	
 alley	2313	
+park bench	2116	
+wooden fence	2045	
 railroad tracks	2041	
 train station	1985	
+health bar	1919	
 gym	1835	
 crosswalk	1785	
+chocolate bar	1760	
 shared umbrella	1702	
 stadium	1610	
 garden	1566	
+bar stool	1561	
 graveyard	1542	
 on motorcycle	1514	
 on car	1469	
@@ -42,13 +66,16 @@ fountain	1399
 sidewalk	1395	
 clock tower	1277	
 bus stop	1263	
+watermelon bar	1232	
 convenience store	1209	
+stone stairs	1077	
 aquarium	1058	
 on railing	1010	
 lighthouse	990	
 on roof	977	
 windmill	924	
 casino	918	
+tokyo (city)	917	
 multiple torii	898	
 pier	891	
 apartment	843	
@@ -56,6 +83,7 @@ pagoda	799
 dock	787	
 wheat field	733	
 hospital	726	
+hakurei shrine	724	
 on scooter	721	
 rice paddy	717	
 prison	715	
@@ -67,12 +95,19 @@ on tank	658
 carousel	628	
 village	610	
 amusement park	597	
+transmission tower	593	
 arcade	584	
 market stall	584	
 movie theater	568	
+european architecture	546	
+multiple unit train	545	
+train station platform	537	
 hangar	533	
+school of fish	515	
 stone walkway	482	
 greenhouse	475	
+wooden bench	468	
+piano bench	467	
 bakery	461	
 dirt road	457	
 canal	451	
@@ -80,9 +115,12 @@ tunnel	449
 against fence	444	
 on boat	432	
 phone booth	422	
+computer tower	396	
 supermarket	387	
 harbor	376	
 market	372	
+brick road	350	
+gothic architecture	347	
 factory	333	
 tavern	316	
 roller coaster	313	
@@ -90,43 +128,69 @@ in shopping cart	312
 well	312	
 airport	299	
 wooden bridge	298	
+space station	295	
 highway	293	
 industrial	291	
+horizontal bar	286	
 gazebo	273	
 on wall	267	
 under umbrella	266	
+eiffel tower	261	
+ice cream bar	239	
+new york city	239	
 izakaya	237	
 sitting on roof	231	
+elizabeth tower	227	
+bar soap	217	
 barn	212	
 construction site	205	
 hut	204	
 garage	203	
+broken pillar	195	
+subway station	195	
+iron fence	194	
 burning building	193	
 treehouse	193	
 nightclub	191	
 mall	186	
 theater	179	
 zoo	177	
+multi-lane road	176	
+post and rail fence	176	
 sitting on fence	175	
+baseball stadium	174	
 flower shop	173	
 museum	170	
 runway	166	
 arena	165	
+candy bar	161	
 convention	161	
+pedestrian bridge	159	
 hotel	158	
 warehouse	157	
 waterpark	155	
+moriya shrine	153	
 gas station	147	
+laundry pole	147	
 bookstore	146	
+radio tower	143	
 megastructure	141	
 floating castle	139	
+picket fence	139	
 floating city	135	
+clothes shop	134	
+ski pole	130	
 trench	129	
+stone pillar	126	
 soccer field	121	
 bell tower	119	
+middle eastern architecture	116	
+cat tower	108	
 shack	105	
 leaning against vehicle	104	
+under bridge	104	
 on swing	102	
+toy train	101	
 airfield		
 amphitheater		
 aqueduct		

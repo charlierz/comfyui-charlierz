@@ -100,10 +100,22 @@ Camera pools separate viewpoint, framing, composition, and focus:
 - `camera/composition.tsv` — layout/compositional devices: `border`, `multiple views`, `reference sheet`, `projected inset`, `symmetry`.
 - `camera/focus.tsv` — explicit focus targets: `solo focus`, `ass focus`, `foot focus`.
 
-Other visual buckets:
+Scene/background buckets:
 
-- Background colors and patterns belong under `scene/bg/color.tsv` and `scene/bg/pattern.tsv`.
-- Specific places belong under `scene/bg/places.tsv`.
+- `scene/background.tsv` — broad background setting states: `simple background`, `outdoors`, `indoors`, `day`, `night`.
+- `scene/bg/color.tsv`, `scene/bg/pattern.tsv` — background color/pattern variants.
+- `scene/bg/places.tsv` — outdoor/public places and architectural locations.
+- `scene/bg/indoors.tsv` — interiors, rooms, furniture, and interior surfaces.
+- `scene/bg/nature.tsv` — general terrain/natural-location tags not covered by the narrower files.
+- `scene/bg/sky_weather.tsv` — sky, weather, celestial, and lighting-from-nature tags.
+- `scene/bg/plants.tsv` — plants, flowers, trees, leaves, petals, and gardens.
+- `scene/bg/water.tsv` — water, beaches, oceans, boats, and water-adjacent props.
+- `scene/objects.tsv` — general props and object subject matter.
+- `scene/food_drink.tsv` — food, drink, tableware, and food packaging.
+- `scene/animals.tsv` — animals and animal subjects.
+- `scene/vehicles.tsv` — vehicles and vehicle interiors/parts.
+- `scene/effects.tsv` — scene effects: fire, smoke, sparkles, bubbles, explosions, blood splatter.
+- `visual/symbols.tsv` — non-face graphic symbols: `heart`, `star (symbol)`, `musical note`, `arrow (symbol)`.
 - Visual materials/colors/patterns belong under `visual/`.
 - Rendering/shading/media format belong under `style/`.
 
@@ -156,7 +168,7 @@ for p in Path('data/tag_pools').rglob('*.tsv'):
         if line.strip():
             pool.add(line.split('\t')[0])
 
-for category in ['actions_poses', 'appearance_anatomy', 'expressions']:
+for category in ['actions_poses', 'appearance_anatomy', 'expressions', 'scene_background']:
     tags = [
         line.strip().replace('_', ' ')
         for line in Path(f'data/tag_categories/{category}.txt').read_text().splitlines()
