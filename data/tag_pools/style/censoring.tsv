@@ -1,23 +1,23 @@
-tag	count	related
-censored	412658	
-mosaic censoring	183362	
-bar censor	141512	
-uncensored	113257	
-convenient censoring	37369	
-heart censor	17429	
-hair censor	9539	
-novelty censor	4318	
-blur censor	3131	
-blank censor	2515	
-tail censor	2119	
-censored identity	1917	
-light censor	1667	
-soap censor	1403	
-character censor	1316	
-scribble censor	968	
-censored text	829	
-transparent censoring	669	
-censored by text	444	
-censored profanity	204	
-fake censor	199	
-censored violence	103	
+tag	count
+censored	412658
+mosaic censoring	183362
+bar censor	141512
+uncensored	113257
+convenient censoring	37369
+heart censor	17429
+hair censor	9539
+novelty censor	4318
+blur censor	3131
+blank censor	2515
+tail censor	2119
+censored identity	1917
+light censor	1667
+soap censor	1403
+character censor	1316
+scribble censor	968
+censored text	829
+transparent censoring	669
+censored by text	444
+censored profanity	204
+fake censor	199
+censored violence	103

@@ -1,114 +1,125 @@
-# Danbooru tag relatedness files
+# Tag data generation notes
 
-This folder contains Danbooru tag lists and generated TSVs for finding related tags within curated tag categories.
+## Current target model
 
-## Credits
+`data/tag_pools/**/*.tsv` is the curated tag source of truth.
 
-Source CSVs are downloaded from [`newtextdoc1111/danbooru-tag-csv`](https://huggingface.co/datasets/newtextdoc1111/danbooru-tag-csv). The generated files in this folder are derived from that dataset plus this repository's curated category files.
+Each tag pool TSV stores pool membership and source frequency only:
+
+```tsv
+tag	count
+blue eyes	1265728
+mysterious aura	
+```
+
+Rules:
+
+- tag text is authored in space form;
+- `count` is optional source frequency, usually seeded from Danbooru;
+- tag pools do not contain related-tag columns;
+- generated relationship data lives outside `tag_pools/`.
+
+Target relationship area:
+
+```text
+data/tag_relationships/
+  characters.tsv
+  related_tags.tsv
+```
+
+During transition, `data/characters.tsv` may still live at the data root. It is conceptually a generated relationship file.
+
+Relationship files should not duplicate `count`; counts belong in tag pool rows unless a separate global tag registry is intentionally introduced.
 
 ## Source data
 
-- `danbooru_tags.csv` — tag metadata: `tag,category,count,alias`. Used for tag post counts in relatedness scoring. Large local input; ignored by git.
-- `danbooru_tags_cooccurrence.csv` — raw tag-pair cooccurrence data: `tag_a,tag_b,count`. Large local input; ignored by git.
-- `general.txt` — extracted general tag list.
-- `copyrights.txt` — extracted copyright/franchise tag list.
-- `characters.tsv` — character tags mapped to all related general tags with Danbooru character counts, sorted by character popularity/count descending.
+Large local inputs are downloaded from [`newtextdoc1111/danbooru-tag-csv`](https://huggingface.co/datasets/newtextdoc1111/danbooru-tag-csv):
 
-## Scripts
+- `danbooru_tags.csv` — tag metadata: `tag,category,count,alias`; used to seed tag-pool counts and character/franchise data.
+- `danbooru_tags_cooccurrence.csv` — raw tag-pair cooccurrence data: `tag_a,tag_b,count`; used to generate relationship files.
 
-- `scripts/generate_general_tags.py` — extracts general tags.
-- `scripts/generate_copyrights.py` — extracts copyright/franchise tags.
-- `scripts/generate_characters.py` — generates `characters.tsv`.
-- `scripts/download_danbooru_tag_csv.py` — downloads large local CSV inputs from Hugging Face.
-- `scripts/generate_tag_category_cooccurrence.py` — generates per-category related-tag TSVs.
-- `scripts/sort_tag_categories_by_general.py` — sorts `tag_categories/*.txt` by `general.txt` popularity order.
+These CSVs are local/ignored inputs, not runtime source-of-truth data.
 
-Download large CSV inputs:
+Download them from `data/`:
 
 ```bash
 ./scripts/download_danbooru_tag_csv.py
 ```
 
-The download source is:
+## Active scripts
 
-```text
-https://huggingface.co/datasets/newtextdoc1111/danbooru-tag-csv/tree/main
-```
+- `scripts/download_danbooru_tag_csv.py` — downloads large local CSV inputs from Hugging Face.
+- `scripts/generate_characters.py` — generates character relationship TSVs.
+- `scripts/generate_tag_pool_related.py` — intended generator for non-character tag relationships. It should target separate relationship files, not `related` columns in tag pools.
+- `scripts/generate_copyrights.py` — legacy generator for `copyrights.txt`; prefer `data/tag_pools/theme/franchise.tsv` in the tag-pool model.
 
-Extract general tags:
+One-off migration scripts are archived under `.ai/archive/` for provenance.
 
-```bash
-./scripts/generate_general_tags.py danbooru_tags.csv general.txt
-```
+## Legacy files during migration
 
-Extract copyright/franchise tags:
+The following files may still exist because runtime migration is incomplete or because they are useful import/reference artifacts:
 
-```bash
-./scripts/generate_copyrights.py
-```
+- `general.txt` — legacy generated general-tag list.
+- `copyrights.txt` — legacy generated copyright/franchise list; current tag-pool equivalent is `tag_pools/theme/franchise.tsv`.
+- `characters.tsv` — generated character relationship file; target location may become `tag_relationships/characters.tsv`.
+- `tag_categories/*.txt` — legacy broad category sources used during migration/coverage checks.
+- `tag_category_cooccurrence/<metric>/*.tsv` — legacy related-tag outputs for old category files.
+- `tag_pools_cooccurrence/**/*.tsv` — transitional generated relationship-like data for tag pools; should be replaced by the final relationship-file shape.
 
-Generate character tags:
+Do not treat the legacy files as the long-term runtime source of truth.
+
+## Character generation
+
+Generate character relationships from `data/`:
 
 ```bash
 ./scripts/generate_characters.py danbooru_tags.csv danbooru_tags_cooccurrence.csv characters.tsv
 ```
 
-This writes `tag<TAB>count<TAB>related` and does not clip related tags by default. Use `--top-n` only for analysis or alternate clipped outputs.
-
-After editing `tag_categories/*.txt`, re-sort the category files, then regenerate related-tag TSVs:
-
-```bash
-./scripts/sort_tag_categories_by_general.py
-./scripts/generate_tag_category_cooccurrence.py
-```
-
-The Python generation script reads tag counts from `./danbooru_tags.csv`.
-If that file is absent, run `./scripts/download_danbooru_tag_csv.py` first.
-
-## Tag categories
-
-`tag_categories/*.txt` contains curated tag groups. The current groups are:
-
-- `actions_poses.txt`
-- `appearance_anatomy.txt`
-- `clothing_accessories.txt`
-- `expressions.txt`
-- `scene_background.txt`
-- `style_quality.txt`
-- `themes_roles.txt`
-
-The files define category membership. Generated TSV rows are ordered by `general.txt` popularity order, not by the category file order. Tags missing from `general.txt` are placed after ranked tags, preserving their category-file order.
-
-### Reclassification policy
-
-Reclassifying tags between category files is a semantic curation task. Future reclassifications should be done by an AI/human reading and judging each tag's meaning in context, not by broad pattern matching such as suffixes, prefixes, or substring rules. Pattern searches may be used only to find candidates for review; the final move list must be explicitly curated.
-
-## Generated outputs
-
-Generated files are under `tag_category_cooccurrence/`, split by scoring method:
-
-- `cooccurrence/` — raw cooccurrence count. Good for common pairs, but popular tags dominate.
-- `jaccard/` — `cooccurrence / (count_a + count_b - cooccurrence)`. Same method used by ComfyUI-Autocomplete-Plus.
-- `lift/` — `cooccurrence / (count_a * count_b)`, with the dataset-size constant omitted for ranking. Highlights unusually specific associations, but can over-rank rare tags.
-- `cosine/` — `cooccurrence / sqrt(count_a * count_b)`. Often a useful middle ground.
-
-Each scoring directory contains one TSV per tag category:
-
-```text
-tag_category_cooccurrence/<score>/<category>.tsv
-```
-
-Each TSV row has this format:
+This writes:
 
 ```tsv
-tag	related_tag_1,related_tag_2,...
+tag	count	related
 ```
 
-Related tags are limited to the top 100 for each row.
+Character relationship files include `count` because the source row is the character tag itself. This is different from non-character related-tag overlays, which should not duplicate tag-pool counts.
 
-## Notes
+## Franchise/copyright tags
 
-- Matching is done within each category file only: both tags in a pair must appear in the same `tag_categories/*.txt` file.
-- Row order follows `general.txt`, which is ordered by popularity.
-- Tags missing from `general.txt` are placed after ranked tags, preserving their category-file order.
-- Related tags within each row are sorted by the selected scoring method.
+`data/tag_pools/theme/franchise.tsv` is the tag-pool replacement for `copyrights.txt`.
+
+Current desired shape:
+
+```tsv
+tag	count
+original	891679
+touhou	651387
+```
+
+If regenerated, source it from Danbooru category `3` in `danbooru_tags.csv` and write space-form tags sorted by count descending.
+
+## Related tag generation
+
+Non-character related tags should be generated from curated tag pools plus cooccurrence data.
+
+Desired output should live outside `data/tag_pools/`, likely:
+
+```text
+data/tag_relationships/related_tags.tsv
+```
+
+Candidate compact shape:
+
+```tsv
+tag	related
+blue eyes	green eyes, aqua eyes, heterochromia
+```
+
+Potential richer edge-table shape if context/scores need to be surfaced:
+
+```tsv
+source	target	method	score	context
+blue eyes	green eyes	cosine_jaccard	0.82	face/eye_appearance
+```
+
+Open design choice: compact list rows vs normalized edge rows.

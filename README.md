@@ -20,9 +20,9 @@ Adds a structured prompt node and frontend autocomplete for Danbooru-style tags.
 - `Prompt Helper Fill Request` builds an LLM instruction for filling selected prompt categories.
 - `Prompt Helper Fill Apply` merges an LLM JSON response back into the structured prompt.
 - Browser extension behavior:
-  - autocomplete in text inputs using `data/general.txt`
+  - autocomplete in text inputs using curated/generated tag data
   - category-prioritized suggestions inside `Prompt Helper`
-  - related-tag popups from generated cooccurrence TSVs
+  - related-tag popups from generated relationship TSVs
   - character-tag popups for known characters
   - Danbooru wiki quick links
 
@@ -80,15 +80,15 @@ Entries and selected variant options are expanded recursively, so wildcards can 
 
 Escaping uses backslashes for literal syntax characters where needed, such as `\{`, `\}`, `\|`, and `\_`.
 
-Prompt categories are curated in `data/tag_categories/*.txt`:
+Curated prompt tag pools live under `data/tag_pools/**/*.tsv`. Each pool uses space-form tags and source counts:
 
-- `style_quality`
-- `themes_roles`
-- `appearance_anatomy`
-- `clothing_accessories`
-- `actions_poses`
-- `expressions`
-- `scene_background`
+```tsv
+tag	count
+blue eyes	1265728
+mysterious aura	
+```
+
+Pool files do not store related tags. Generated relationship data, including character relationships, lives separately.
 
 ### Utility nodes
 
@@ -122,9 +122,15 @@ No separate Python package installation is currently defined.
 
 ## Data files
 
-The prompt helper uses checked-in generated/curated data under `data/`:
+The prompt helper/catalog uses checked-in curated/generated data under `data/`:
 
-- `general.txt`, `copyrights.txt`, `characters.tsv`
+- `tag_pools/**/*.tsv` — curated tag pools, source of truth for tag membership and counts
+- `characters.tsv` — generated character relationship data during transition
+- future `tag_relationships/*.tsv` — generated related-tag relationship data
+
+Legacy/generated Danbooru files may still exist during migration, but are not the target source-of-truth model:
+
+- `general.txt`, `copyrights.txt`
 - `tag_categories/*.txt`
 - `tag_category_cooccurrence/<metric>/*.tsv`
 
@@ -133,6 +139,6 @@ Large source CSVs are intentionally ignored by git:
 - `data/danbooru_tags.csv`
 - `data/danbooru_tags_cooccurrence.csv`
 
-If you want to recreate or update tag files, follow `data/TAG_GENERATION.md` for the download and generation workflow.
+For tag-pool curation rules, see `data/TAG_POOLS.md`. For generation/import notes, see `data/TAG_GENERATION.md`.
 
-Credit: source CSVs come from [`newtextdoc1111/danbooru-tag-csv`](https://huggingface.co/datasets/newtextdoc1111/danbooru-tag-csv). The checked-in tag files are derived from that dataset plus this repository's curated categories.
+Credit: source CSVs come from [`newtextdoc1111/danbooru-tag-csv`](https://huggingface.co/datasets/newtextdoc1111/danbooru-tag-csv). Some checked-in/generated files are derived from that dataset plus this repository's curated pools.

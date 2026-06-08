@@ -7,7 +7,7 @@
 Each pool is a TSV with this header:
 
 ```tsv
-tag	count	related
+tag	count
 ```
 
 Rules:
@@ -16,21 +16,33 @@ Rules:
 - Preserve meaningful hyphens: `upside-down`, `side-tie panties`, `ass-to-ass penetration`.
 - Keep Danbooru punctuation when it is part of the tag: `oyakodon (sex)`, `jack-o' challenge`.
 - `count` is the Danbooru post count when known; leave blank when unknown.
-- `related` may be blank.
-- A tag must appear in exactly one pool globally.
+- `count` is source frequency only, not prompt emphasis and not a normalized wildcard weight.
+- Do not store related tags in pool files. Generated relationship files live outside `data/tag_pools/`.
+- A tag must appear in exactly one pool globally unless a deliberate multi-pool membership model is introduced.
 - Rows are sorted by numeric `count` descending. Rows without counts come after counted rows and are sorted alphabetically by tag.
 - For equal numeric counts, sort alphabetically by tag.
 
-## Relationship to `tag_categories/`
+## Relationship data
 
-`data/tag_categories/*.txt` are broad source categories. Tags there may use underscores. In tag pools, normalize underscores to spaces.
+Related tags are generated relationship data, not hand-maintained pool data.
 
-When checking coverage, compare category tags after replacing `_` with spaces.
+Target relationship layout:
 
-Important invariants:
+```text
+data/tag_relationships/
+  characters.tsv
+  related_tags.tsv
+```
 
-- Every tag from `data/tag_categories/actions_poses.txt` should exist in exactly one `tag_pools/**/*.tsv` file after underscore-to-space normalization.
-- `data/tag_categories/appearance_anatomy.txt` should be represented where tags describe visible character appearance/anatomy. Obvious source-category leakage such as scene props may remain unpooled.
+During transition, `data/characters.tsv` may still exist at the data root. It is conceptually a generated relationship file.
+
+Relationship files should not duplicate `count`; counts belong in `data/tag_pools/**/*.tsv` unless a separate global tag registry is intentionally introduced.
+
+## Relationship to legacy `tag_categories/`
+
+`data/tag_categories/*.txt` are legacy broad source categories. Tags there may use underscores. In tag pools, normalize underscores to spaces.
+
+When checking coverage during migration, compare category tags after replacing `_` with spaces.
 
 ## Semantic bucket principles
 
@@ -61,7 +73,7 @@ Use `body/` for anatomy, body traits, visible body states, and character-level a
 - `body/nails.tsv` is for fingernails/toenails and nail styling: `black nails`, `long fingernails`, `nail art`.
 - `body/character.tsv` is the single body-owned bucket for character-level visual identity/archetype/species/age/gender-presentation tags: `loli`, `otoko no ko`, `cat girl`, `robot`.
 - `body/mechanical.tsv` is for mechanical/prosthetic body traits: `robot joints`, `mechanical arms`, `prosthetic leg`.
-- `body/fantasy/` is for non-human anatomy traits split by visible part: ears, tails, horns/halos, wings, and other traits.
+- `body/fantasy/` is for non-human anatomy traits split by visible part: ears, tails, horns, halos, wings, and other traits.
 - Keep passive body states in body files: `gaping`, `sweat`, `steaming body`.
 - Use `body/moisture.tsv` for wetness/sweat states: `wet`, `sweat`, `very sweaty`, `steaming body`.
 - Move active manipulation/actions out of body: `spreading own pussy` → `pose/sexual.tsv`; `wiping sweat` → `pose/action.tsv`.
