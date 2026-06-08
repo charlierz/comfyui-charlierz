@@ -27,9 +27,10 @@ Rules:
 
 When checking coverage, compare category tags after replacing `_` with spaces.
 
-Important invariant:
+Important invariants:
 
 - Every tag from `data/tag_categories/actions_poses.txt` should exist in exactly one `tag_pools/**/*.tsv` file after underscore-to-space normalization.
+- `data/tag_categories/appearance_anatomy.txt` should be represented where tags describe visible character appearance/anatomy. Obvious source-category leakage such as scene props may remain unpooled.
 
 ## Semantic bucket principles
 
@@ -50,13 +51,31 @@ Use `pose/` for visible body arrangement, interaction, or frozen action.
 
 ### Body pools
 
-Use `body/` for anatomy, body traits, and visible body states.
+Use `body/` for anatomy, body traits, visible body states, and character-level appearance traits.
 
 - Keep anatomy in body files: `pussy`, `clitoris`, `penis`, `labia`.
+- `body/pussy/` splits vulva/pubic-area tags into anatomy, pubic hair, state, and piercing pools.
+- `body/anatomy.tsv` is for general body parts and body-region traits that do not have a more specific file: `navel`, `collarbone`, `feet`, `back`.
+- `body/skin.tsv` is for complexion, skin/fur color, tan, and skin surface traits: `dark skin`, `tanlines`, `blue skin`, `shiny skin`.
+- `body/marks.tsv` is for tattoos, scars, bruises, markings, and piercings: `tattoo`, `scar on face`, `tramp stamp`, `lip ring`.
+- `body/nails.tsv` is for fingernails/toenails and nail styling: `black nails`, `long fingernails`, `nail art`.
+- `body/character.tsv` is the single body-owned bucket for character-level visual identity/archetype/species/age/gender-presentation tags: `loli`, `otoko no ko`, `cat girl`, `robot`.
+- `body/mechanical.tsv` is for mechanical/prosthetic body traits: `robot joints`, `mechanical arms`, `prosthetic leg`.
+- `body/fantasy/` is for non-human anatomy traits split by visible part: ears, tails, horns/halos, wings, and other traits.
 - Keep passive body states in body files: `gaping`, `sweat`, `steaming body`.
 - Use `body/moisture.tsv` for wetness/sweat states: `wet`, `sweat`, `very sweaty`, `steaming body`.
 - Move active manipulation/actions out of body: `spreading own pussy` → `pose/sexual.tsv`; `wiping sweat` → `pose/action.tsv`.
 - Use `body/exposure.tsv` for body visibility/nudity states: `nude`, `bare shoulders`, `cleavage`, `covering breasts`, `naked shirt`.
+
+### Face pools
+
+Use `face/` for facial expression, eye/mouth appearance, gaze, and static face features.
+
+- `face/eye_appearance.tsv` — static eye traits: `blue eyes`, `heterochromia`, `white pupils`, `black sclera`.
+- `face/features.tsv` — static face features and facial hair: `mole under eye`, `freckles`, `beard`, `sunken cheeks`.
+- `face/eyes.tsv` — eye actions/expressions: `closed eyes`, `one eye closed`, `raised eyebrows`.
+- `face/mouth.tsv` — mouth expressions/actions.
+- `face/gaze.tsv` — gaze direction.
 
 ### Clothes pools
 
@@ -91,10 +110,14 @@ Duplicates are not allowed globally. If a tag seems to belong in multiple places
 
 Examples:
 
-- `ass focus` → `camera/focus.tsv`, not `body/ass.tsv`.
+- `ass focus`, `leg focus` → `camera/focus.tsv`, not body anatomy files.
+- `head only` → `camera/framing.tsv`, not `body/anatomy.tsv`.
+- `object on head`, `pokemon on head`, `cat on head` → `scene/subject_matter.tsv`, not `body/anatomy.tsv`.
 - `covering breasts` → `body/exposure.tsv`, not `pose/breast_touch.tsv`.
 - `clothes lift` → `clothes/exposure.tsv`, not `pose/action.tsv`.
+- `framed breasts` → `clothes/exposure.tsv`, because clothing frames/reveals the breasts.
 - `blindfold` → `clothes/sexual/bdsm.tsv`, not generic accessories or scene objects.
+- `red light` → `style/techniques.tsv`, because it is lighting, not a color swatch.
 
 ## Validation snippets
 
@@ -117,16 +140,11 @@ for tag, places in sorted(locs.items()):
 PY
 ```
 
-Verify `actions_poses.txt` coverage:
+Verify source-category coverage:
 
 ```bash
 python - <<'PY'
 from pathlib import Path
-actions = [
-    line.strip().replace('_', ' ')
-    for line in Path('data/tag_categories/actions_poses.txt').read_text().splitlines()
-    if line.strip()
-]
 pool = set()
 for p in Path('data/tag_pools').rglob('*.tsv'):
     for i, line in enumerate(p.read_text().splitlines(), 1):
@@ -134,9 +152,16 @@ for p in Path('data/tag_pools').rglob('*.tsv'):
             continue
         if line.strip():
             pool.add(line.split('\t')[0])
-missing = [tag for tag in actions if tag not in pool]
-print('actions_poses missing', len(missing))
-for tag in missing:
-    print(tag)
+
+for category in ['actions_poses', 'appearance_anatomy']:
+    tags = [
+        line.strip().replace('_', ' ')
+        for line in Path(f'data/tag_categories/{category}.txt').read_text().splitlines()
+        if line.strip()
+    ]
+    missing = [tag for tag in tags if tag not in pool]
+    print(category, 'missing', len(missing))
+    for tag in missing[:50]:
+        print(' ', tag)
 PY
 ```
