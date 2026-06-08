@@ -1,46 +1,76 @@
 tag	count	related
 smile	2294308	
 open mouth	1906325	
+closed mouth	979176	
 parted lips	426864	
+teeth	391147	
 tongue	320198	
+fang	267648	
 tongue out	243263	
 grin	186918	
+upper teeth only	126630	
+lips	113608	
+fangs	79526	
 mouth hold	66239	
+sharp teeth	64971	
 eating	60805	
 light smile	60666	
+skin fang	56301	
 clenched teeth	53544	
 kiss	47780	
 breath	43342	
+licking	34985	
 heavy breathing	34914	
 finger to mouth	33314	
+pink lips	24503	
+red lips	19246	
 licking lips	19097	
 covering own mouth	18254	
+covered mouth	16769	
 smoking	16302	
 food in mouth	16241	
+round teeth	15256	
+split mouth	14958	
 drinking	14157	
+chestnut mouth	14089	
 hand to own mouth	13603	
 french kiss	12207	
+fang out	10942	
+laughing	10665	
 evil smile	10219	
 imminent kiss	9429	
 talking	9168	
 biting	9091	
+lower teeth only	8161	
 singing	7947	
 yawning	7707	
+no mouth	7043	
 feeding	6616	
+purple lips	6462	
+long tongue	5283	
+shouting	5169	
+sideways mouth	5029	
 kissing cheek	4748	
 blowing bubbles	4602	
+dot mouth	4573	
 evil grin	4404	
 biting own lip	4324	
 clothes in mouth	4237	
+black lips	3951	
 smelling	3843	
+puckered lips	3815	
+lipstick mark	3758	
 hand over own mouth	3393	
+blue lips	3313	
 licking finger	2975	
 blowing kiss	2730	
 crazy smile	2418	
 drinking straw in mouth	2188	
+heart in mouth	2184	
 surprise kiss	1967	
 hair in own mouth	1929	
 shirt in mouth	1836	
+fangs out	1800	
 ribbon in mouth	1772	
 pocky kiss	1769	
 whispering	1722	
@@ -49,9 +79,11 @@ chewing	1537
 licking another's face	1536	
 kissing forehead	1526	
 cheek bulge	1500	
+rectangular mouth	1437	
 pocky in mouth	1402	
 mouth pull	1397	
 utensil in mouth	1322	
+pursed lips	1280	
 licking armpit	1131	
 biting ear	1115	
 kissing hand	1087	
@@ -63,6 +95,8 @@ implied kiss	936
 licking ear	928	
 covering another's mouth	909	
 food bite	882	
+brown lips	868	
+gao	832	
 holding breath	829	
 teeth hold	829	
 smelling clothes	824	
@@ -70,6 +104,7 @@ spit take	792
 fingersmile	770	
 licking another's neck	765	
 forced smile	732	
+nyan	727	
 sneezing	724	
 noses touching	721	
 incoming kiss	712	
@@ -87,6 +122,7 @@ licking another's cheek	469
 glasgow smile	466	
 whistling	455	
 throat bulge	451	
+full mouth	443	
 vomiting	435	
 pipe in mouth	430	
 tasting	423	
@@ -95,14 +131,17 @@ tongue grab	411
 nuzzle	394	
 smelling flower	376	
 breathing	359	
+peanut mouth	355	
 biting clothes	346	
 fish in mouth	325	
 imminent bite	307	
 incoming pocky kiss	305	
 licking hand	295	
+giggling	293	
 finger to tongue	288	
 jaw drop	286	
 frieren blowing a kiss	282	
+excessive nosebleed	272	
 stifled laugh	271	
 roaring	268	
 biting cheek	264	
@@ -111,6 +150,7 @@ smelling hair	256
 biting head	254	
 humming	253	
 blowing whistle	250	
+snort	245	
 eating hair	243	
 coughing	242	
 biting another's finger	239	
@@ -120,9 +160,12 @@ burp	233
 eyewear in mouth	231	
 nodding	224	
 licking weapon	223	
+sneer	221	
 indirect kiss	219	
 kissing object	217	
 dress in mouth	211	
+crazy grin	210	
+yurie mouth	206	
 calling	205	
 biting own thumb	200	
 smelling ass	196	
@@ -130,6 +173,7 @@ biting another's tail	193
 smelling underwear	187	
 smelling armpit	185	
 biting finger	182	
+gasp	176	
 kissing animal	174	
 rejected kiss	171	
 licking navel	169	
@@ -139,6 +183,8 @@ blowing in ear	164
 dirty talk	164	
 biting hair	162	
 flower to mouth	162	
+muffled	161	
+white lips	160	
 biting another's hand	159	
 double cheek kiss	159	
 cigarette kiss	155	
@@ -151,6 +197,7 @@ waiting for kiss	151
 barking	150	
 counting	149	
 pinky to mouth	149	
+puckered face	146	
 stutter	146	
 bread eating race	145	
 can to cheek	143	
@@ -169,10 +216,12 @@ giving food	115
 drinking blood	113	
 forced kiss	113	
 pen to mouth	112	
+chipped tooth	111	
 kissing back	111	
 biting shoulder	109	
 biting tongue	109	
 kissing stomach	109	
+hollow mouth	108	
 leash in mouth	107	
 rapping	107	
 drinking from condom	105	
