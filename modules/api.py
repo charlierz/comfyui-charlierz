@@ -16,6 +16,9 @@ TAG_COOCCURRENCE_DIR = os.path.join(DATA_DIR, "tag_category_cooccurrence")
 GENERAL_TAGS_FILE = os.path.join(DATA_DIR, "general.txt")
 COPYRIGHT_TAGS_FILE = os.path.join(DATA_DIR, "copyrights.txt")
 CHARACTERS_FILE = os.path.join(DATA_DIR, "characters.tsv")
+CHARACTERS_ENTITIES_FILE = os.path.join(DATA_DIR, "tag_entities", "characters.tsv")
+FRANCHISES_FILE = os.path.join(DATA_DIR, "tag_entities", "franchises.tsv")
+CHARACTER_TAGS_FILE = os.path.join(DATA_DIR, "tag_relationships", "character_tags.tsv")
 
 CATEGORY_FILES = {
     "style_quality": "style_quality.txt",
@@ -27,13 +30,17 @@ CATEGORY_FILES = {
     "scene_background": "scene_background.txt",
 }
 
-CATEGORY_EXTRA_TAG_FILES = {
-    "themes_roles": [COPYRIGHT_TAGS_FILE],
+CATEGORY_EXTRA_TAG_FILES: dict[str, list[str]] = {}
+
+CATEGORY_EXTRA_TSV_KEY_FILES: dict[str, list[str]] = {
+    "themes_roles": [FRANCHISES_FILE, CHARACTERS_ENTITIES_FILE],
 }
 
-CATEGORY_EXTRA_TSV_KEY_FILES = {
-    "themes_roles": [CHARACTERS_FILE],
-}
+def _entity_or_legacy(primary: str, legacy: str) -> str:
+    if os.path.exists(primary):
+        return primary
+    return legacy
+
 
 EXCLUDED_RELATED_METHODS = {"conditional", "dice"}
 
@@ -103,7 +110,8 @@ def _read_tsv_keys(path: str) -> list[str]:
 @lru_cache(maxsize=1)
 def _read_character_tags() -> dict[str, list[str]]:
     characters: dict[str, list[str]] = {}
-    with open(CHARACTERS_FILE, "r", encoding="utf-8") as f:
+    path = _entity_or_legacy(CHARACTER_TAGS_FILE, CHARACTERS_FILE)
+    with open(path, "r", encoding="utf-8") as f:
         for line_number, line in enumerate(f):
             columns = line.rstrip("\n").split("\t")
             if not columns or (line_number == 0 and columns[0] == "tag"):
@@ -137,10 +145,11 @@ def _read_tags(category: str) -> list[str]:
         with open(GENERAL_TAGS_FILE, "r", encoding="utf-8") as f:
             return _split_tags(f.read())
     if category == "copyrights":
-        with open(COPYRIGHT_TAGS_FILE, "r", encoding="utf-8") as f:
-            return _split_tags(f.read())
+        path = _entity_or_legacy(FRANCHISES_FILE, COPYRIGHT_TAGS_FILE)
+        return _read_tsv_keys(path)
     if category == "characters":
-        return _read_tsv_keys(CHARACTERS_FILE)
+        path = _entity_or_legacy(CHARACTERS_ENTITIES_FILE, CHARACTERS_FILE)
+        return _read_tsv_keys(path)
 
     filename = CATEGORY_FILES.get(category)
     if filename is None:

@@ -14,6 +14,8 @@ WILDCARDS_DIR = os.path.join(DATA_DIR, "wildcards")
 GENERAL_TAGS_FILE = os.path.join(DATA_DIR, "general.txt")
 COPYRIGHT_TAGS_FILE = os.path.join(DATA_DIR, "copyrights.txt")
 CHARACTERS_FILE = os.path.join(DATA_DIR, "characters.tsv")
+CHARACTERS_ENTITIES_FILE = os.path.join(DATA_DIR, "tag_entities", "characters.tsv")
+FRANCHISES_FILE = os.path.join(DATA_DIR, "tag_entities", "franchises.tsv")
 
 CATEGORY_FILES = {
     "style_quality": "style_quality.txt",
@@ -76,17 +78,21 @@ def read_tag_records() -> list[TagRecord]:
             seen.add(normalized)
             records.append(TagRecord(label=display_tag(tag), normalized=normalized, category=category, rank=rank))
 
-    for category, path in (("general", GENERAL_TAGS_FILE), ("copyrights", COPYRIGHT_TAGS_FILE)):
-        for rank, tag in enumerate(_read_tag_file(path)):
+    copyrights_path = FRANCHISES_FILE if os.path.exists(FRANCHISES_FILE) else COPYRIGHT_TAGS_FILE
+    copyright_reader = _read_tsv_keys if copyrights_path == FRANCHISES_FILE else _read_tag_file
+    for category, path in (("general", GENERAL_TAGS_FILE), ("copyrights", copyrights_path)):
+        reader = copyright_reader if category == "copyrights" else _read_tag_file
+        for rank, tag in enumerate(reader(path)):
             normalized = normalize_tag(tag)
             if normalized in seen:
                 continue
             seen.add(normalized)
             records.append(TagRecord(label=display_tag(tag), normalized=normalized, category=category, rank=rank))
 
-    if os.path.exists(CHARACTERS_FILE):
+    characters_path = CHARACTERS_ENTITIES_FILE if os.path.exists(CHARACTERS_ENTITIES_FILE) else CHARACTERS_FILE
+    if os.path.exists(characters_path):
         character_rank = 0
-        with open(CHARACTERS_FILE, "r", encoding="utf-8") as f:
+        with open(characters_path, "r", encoding="utf-8") as f:
             for line_number, line in enumerate(f):
                 tag = line.partition("\t")[0].strip()
                 if line_number == 0 and tag == "tag":
@@ -321,6 +327,19 @@ def _read_tag_file(path: str) -> list[str]:
         return []
     with open(path, "r", encoding="utf-8", errors="replace") as f:
         return [tag.strip() for tag in f.read().replace("\n", ",").split(",") if tag.strip()]
+
+
+def _read_tsv_keys(path: str) -> list[str]:
+    if not os.path.exists(path):
+        return []
+    keys: list[str] = []
+    with open(path, "r", encoding="utf-8", errors="replace") as f:
+        for line_number, line in enumerate(f):
+            key = line.partition("\t")[0].strip()
+            if not key or (line_number == 0 and key == "tag"):
+                continue
+            keys.append(key)
+    return keys
 
 
 def _read_wildcard_entries(path: str) -> list[WildcardEntry]:

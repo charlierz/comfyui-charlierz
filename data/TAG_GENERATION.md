@@ -1,5 +1,7 @@
 # Tag data generation notes
 
+Some generated files in `data/tag_relationships/` are gitignored due to their large size (55MB+ each). Generate them locally from the source data.
+
 ## Current target model
 
 `data/tag_pools/**/*.tsv` is the curated prompt-pool source of truth. Generated entity registries and relationship overlays live outside tag pools so they can power autocomplete/popups without being treated as curated sampling or same-pool relationship data.
@@ -29,9 +31,10 @@ data/tag_entities/       # generated entity registries; autocomplete/ranking onl
   characters.tsv        # tag<TAB>count
   franchises.tsv        # tag<TAB>count
 
-data/tag_relationships/  # generated relationship overlays; no counts
-  character_tags.tsv    # tag<TAB>related
-  related_tags.tsv      # tag<TAB>related
+data/tag_relationships/  # generated relationship overlays; gitignored, no counts
+  character_tags.tsv                  # tag<TAB>related
+  related_tags_cosine_jaccard.tsv     # tag<TAB>related
+  related_tags_lift.tsv               # tag<TAB>related
 ```
 
 Relationship files should not duplicate `count`; counts belong in tag pool/entity rows unless a separate global tag registry is intentionally introduced.
@@ -53,10 +56,13 @@ Download them from `data/`:
 
 ## Active scripts
 
-- `scripts/download_danbooru_tag_csv.py` — downloads large local CSV inputs from Hugging Face.
-- `scripts/generate_characters.py` — generates lean `tag_entities/characters.tsv` and `tag_relationships/character_tags.tsv` by default.
-- `scripts/generate_tag_pool_related.py` — intended generator for non-character tag relationships. It should target separate relationship files, not `related` columns in tag pools.
-- `scripts/generate_copyrights.py` — legacy generator for `copyrights.txt`; prefer `data/tag_entities/franchises.tsv` in the current model.
+All scripts are in `data/scripts/`. Run from repo root unless noted otherwise.
+
+| Script | Purpose | Generates |
+|--------|---------|-----------|
+| `download_danbooru_tag_csv.py` | Download source CSVs from Hugging Face | `danbooru_tags.csv`, `danbooru_tags_cooccurrence.csv` |
+| `generate_characters.py` | Character entity registry and relationships | `tag_entities/characters.tsv`, `tag_relationships/character_tags.tsv` |
+| `generate_tag_pool_related.py` | Non-character tag relationships | `tag_relationships/related_tags_cosine_jaccard.tsv`, `tag_relationships/related_tags_lift.tsv` |
 
 One-off migration scripts are archived under `.ai/archive/` for provenance.
 
@@ -114,26 +120,26 @@ If regenerated, source it from Danbooru category `3` in `danbooru_tags.csv` and 
 
 ## Related tag generation
 
-Non-character related tags should be generated from curated tag pools plus cooccurrence data.
+Generate non-character tag relationships from curated tag pools plus cooccurrence data:
 
-Desired output should live outside `data/tag_pools/`, likely:
-
-```text
-data/tag_relationships/related_tags.tsv
+```bash
+data/scripts/generate_tag_pool_related.py [--top-n N] [--dry-run]
 ```
 
-Candidate compact shape:
+This reads all tags from `data/tag_pools/**/*.tsv`, excludes character and franchise tags from `data/tag_entities/`, and generates two relationship files using different similarity metrics:
 
+**`data/tag_relationships/related_tags_cosine_jaccard.tsv`**
 ```tsv
 tag	related
 blue eyes	green eyes, aqua eyes, heterochromia
 ```
+Uses cosine similarity × Jaccard index. Balances frequency and co-occurrence strength.
 
-Potential richer edge-table shape if context/scores need to be surfaced:
-
+**`data/tag_relationships/related_tags_lift.tsv`**
 ```tsv
-source	target	method	score	context
-blue eyes	green eyes	cosine_jaccard	0.82	face/eye_appearance
+tag	related
+blue eyes	surprise kiss, spoken exclamation mark, spoken question mark
 ```
+Uses lift score: `cooccurrence / (count_a × count_b)`. Favors rare tag pairs that co-occur unexpectedly.
 
-Open design choice: compact list rows vs normalized edge rows.
+Both files have identical structure but different rankings. Without `--top-n`, files are ~55MB each. Use `--top-n 20` to limit to 20 related tags per entry.

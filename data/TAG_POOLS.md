@@ -36,9 +36,10 @@ data/tag_entities/       # generated entity registries; autocomplete/ranking onl
   characters.tsv        # tag<TAB>count
   franchises.tsv        # tag<TAB>count
 
-data/tag_relationships/  # generated relationship overlays; no counts
-  character_tags.tsv    # tag<TAB>related
-  related_tags.tsv      # tag<TAB>related
+data/tag_relationships/  # generated relationship overlays; gitignored, no counts
+  character_tags.tsv                  # tag<TAB>related
+  related_tags_cosine_jaccard.tsv     # tag<TAB>related
+  related_tags_lift.tsv               # tag<TAB>related
 ```
 
 Franchises/copyrights and characters should not live in `data/tag_pools/` unless they are intentionally curated as prompt pools. This prevents them from being sampled as regular pools or considered same-pool siblings for related-tag generation.
