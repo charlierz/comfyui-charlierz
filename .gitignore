@@ -206,5 +206,7 @@ marimo/_static/
 marimo/_lsp/
 __marimo__/
 
-# Generated tag relationship files (too large to commit)
+# Large generated data files (download or generate locally)
 data/tag_relationships/
+data/danbooru_tags.csv
+data/danbooru_tags_cooccurrence.csv
