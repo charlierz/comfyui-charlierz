@@ -9,26 +9,19 @@ import server
 from aiohttp import web
 
 from .prompt_catalog import WEIGHT_MODES, expand_wildcards, get_wildcard_detail, list_wildcards, search_catalog
+from .tag_data import (
+    POOL_CATEGORY_MAP,
+    TAG_ENTITIES_DIR,
+    TAG_POOLS_DIR,
+    TAG_RELATIONSHIPS_DIR,
+    normalize_tag,
+    read_tag_pool_tsv,
+    read_tsv_keys,
+)
 
-DATA_DIR = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "data"))
-TAG_POOLS_DIR = os.path.join(DATA_DIR, "tag_pools")
-TAG_ENTITIES_DIR = os.path.join(DATA_DIR, "tag_entities")
-TAG_RELATIONSHIPS_DIR = os.path.join(DATA_DIR, "tag_relationships")
 CHARACTERS_ENTITIES_FILE = os.path.join(TAG_ENTITIES_DIR, "characters.tsv")
 FRANCHISES_FILE = os.path.join(TAG_ENTITIES_DIR, "franchises.tsv")
 CHARACTER_TAGS_FILE = os.path.join(TAG_RELATIONSHIPS_DIR, "character_tags.tsv")
-
-# Map tag_pools top-level directories to prompt categories
-POOL_CATEGORY_MAP = {
-    "body": "appearance_anatomy",
-    "camera": "scene_background",
-    "clothes": "clothing_accessories",
-    "face": "expressions",
-    "pose": "actions_poses",
-    "scene": "scene_background",
-    "style": "style_quality",
-    "visual": "style_quality",
-}
 
 # Map method names to tag_relationships filenames
 RELATED_METHOD_FILES = {
@@ -82,44 +75,8 @@ def _llama_post_json(url: str, payload: dict[str, Any], timeout_seconds: int = 6
     return json.loads(text)
 
 
-def _normalize_tag(tag: str) -> str:
-    return tag.strip().replace(" ", "_")
-
-
 def _split_tags(text: str) -> list[str]:
     return [tag.strip() for tag in text.replace("\n", ",").split(",") if tag.strip()]
-
-
-def _read_tag_pool_tsv(path: str) -> list[tuple[str, int]]:
-    """Read a tag pool TSV file, returning (tag, count) tuples."""
-    rows: list[tuple[str, int]] = []
-    with open(path, "r", encoding="utf-8", errors="replace") as f:
-        for line_number, line in enumerate(f):
-            if line_number == 0 and line.startswith("tag\t"):
-                continue  # skip header
-            parts = line.rstrip("\n").split("\t", 1)
-            if not parts or not parts[0].strip():
-                continue
-            tag = parts[0].strip()
-            count = 0
-            if len(parts) > 1:
-                try:
-                    count = int(parts[1].strip())
-                except (ValueError, TypeError):
-                    pass
-            rows.append((tag, count))
-    return rows
-
-
-def _read_tsv_keys(path: str) -> list[str]:
-    keys: list[str] = []
-    with open(path, "r", encoding="utf-8") as f:
-        for line_number, line in enumerate(f):
-            key = line.partition("\t")[0].strip()
-            if not key or (line_number == 0 and key == "tag"):
-                continue
-            keys.append(key)
-    return keys
 
 
 @lru_cache(maxsize=1)
@@ -142,7 +99,7 @@ def _read_character_tags() -> dict[str, list[str]]:
                 continue
 
             if character:
-                characters[_normalize_tag(character)] = _split_tags(tags)
+                characters[normalize_tag(character)] = _split_tags(tags)
     return characters
 
 
@@ -161,8 +118,8 @@ def _read_category_index() -> dict[str, str]:
             category = POOL_CATEGORY_MAP.get(top_dir)
             if category is None:
                 continue
-            for tag, _count in _read_tag_pool_tsv(path):
-                normalized = _normalize_tag(tag)
+            for tag, _count in read_tag_pool_tsv(path):
+                normalized = normalize_tag(tag)
                 category_index.setdefault(normalized, category)
     return category_index
 
@@ -172,18 +129,18 @@ def _read_tags(category: str) -> list[str]:
     # Entity categories
     if category == "copyrights":
         if os.path.exists(FRANCHISES_FILE):
-            return _read_tsv_keys(FRANCHISES_FILE)
+            return read_tsv_keys(FRANCHISES_FILE)
         return []
     if category == "characters":
         if os.path.exists(CHARACTERS_ENTITIES_FILE):
-            return _read_tsv_keys(CHARACTERS_ENTITIES_FILE)
+            return read_tsv_keys(CHARACTERS_ENTITIES_FILE)
         return []
     if category == "themes_roles":
         tags: list[str] = []
         if os.path.exists(FRANCHISES_FILE):
-            tags.extend(_read_tsv_keys(FRANCHISES_FILE))
+            tags.extend(read_tsv_keys(FRANCHISES_FILE))
         if os.path.exists(CHARACTERS_ENTITIES_FILE):
-            tags.extend(_read_tsv_keys(CHARACTERS_ENTITIES_FILE))
+            tags.extend(read_tsv_keys(CHARACTERS_ENTITIES_FILE))
         return tags
 
     # "general" returns all tags from all tag_pools
@@ -195,7 +152,7 @@ def _read_tags(category: str) -> list[str]:
                     if not filename.endswith(".tsv"):
                         continue
                     path = os.path.join(root, filename)
-                    for tag, _count in _read_tag_pool_tsv(path):
+                    for tag, _count in read_tag_pool_tsv(path):
                         all_tags.append(tag)
         return list(dict.fromkeys(all_tags))
 
@@ -214,7 +171,7 @@ def _read_tags(category: str) -> list[str]:
                 if not filename.endswith(".tsv"):
                     continue
                 path = os.path.join(root, filename)
-                for tag, _count in _read_tag_pool_tsv(path):
+                for tag, _count in read_tag_pool_tsv(path):
                     result.append(tag)
     return list(dict.fromkeys(result))
 
@@ -235,7 +192,7 @@ def _get_related_methods() -> list[str]:
 
 
 def _read_character_tag_groups(character: str) -> dict[str, object]:
-    character = _normalize_tag(character)
+    character = normalize_tag(character)
     character_tags = _read_character_tags().get(character)
     if character_tags is None:
         raise ValueError(f"Unknown character: {character}")
@@ -282,13 +239,13 @@ def _read_related_index(method: str) -> dict[str, list[str]]:
             value = related_tags.strip()
             if value.startswith('"') and value.endswith('"'):
                 value = value[1:-1]
-            index[_normalize_tag(source_tag)] = [r.strip() for r in value.split(",") if r.strip()]
+            index[normalize_tag(source_tag)] = [r.strip() for r in value.split(",") if r.strip()]
     return index
 
 
 def _read_related(method: str, category: str, tag: str) -> list[str]:
     del category  # Route compatibility; related files are currently method-wide.
-    return _read_related_index(method).get(_normalize_tag(tag), [])
+    return _read_related_index(method).get(normalize_tag(tag), [])
 
 
 def clear_api_caches() -> None:

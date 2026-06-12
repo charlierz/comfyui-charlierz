@@ -9,24 +9,19 @@ from dataclasses import dataclass
 from functools import lru_cache
 from typing import Any, Literal
 
-DATA_DIR = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "data"))
-TAG_POOLS_DIR = os.path.join(DATA_DIR, "tag_pools")
-TAG_ENTITIES_DIR = os.path.join(DATA_DIR, "tag_entities")
+from .tag_data import (
+    DATA_DIR,
+    POOL_CATEGORY_MAP,
+    TAG_ENTITIES_DIR,
+    TAG_POOLS_DIR,
+    display_tag,
+    normalize_tag,
+    read_tag_pool_tsv,
+)
+
 WILDCARDS_DIR = os.path.join(DATA_DIR, "wildcards")
 CHARACTERS_ENTITIES_FILE = os.path.join(TAG_ENTITIES_DIR, "characters.tsv")
 FRANCHISES_FILE = os.path.join(TAG_ENTITIES_DIR, "franchises.tsv")
-
-# Map tag_pools top-level directories to prompt categories
-POOL_CATEGORY_MAP = {
-    "body": "appearance_anatomy",
-    "camera": "scene_background",
-    "clothes": "clothing_accessories",
-    "face": "expressions",
-    "pose": "actions_poses",
-    "scene": "scene_background",
-    "style": "style_quality",
-    "visual": "style_quality",
-}
 
 MAX_EXPANSION_DEPTH = 32
 WeightMode = Literal["count", "sqrt", "log", "random"]
@@ -86,7 +81,7 @@ def read_tag_records() -> list[TagRecord]:
                 if category is None:
                     continue
 
-                tag_rows = _read_tag_pool_tsv(path)
+                tag_rows = read_tag_pool_tsv(path)
                 # Sort by count descending, then alphabetically by tag
                 tag_rows.sort(key=lambda x: (-x[1], x[0]))
 
@@ -101,7 +96,7 @@ def read_tag_records() -> list[TagRecord]:
 
     # Read copyright/franchise entities
     if os.path.exists(FRANCHISES_FILE):
-        franchise_entries = _read_tag_pool_tsv(FRANCHISES_FILE)
+        franchise_entries = read_tag_pool_tsv(FRANCHISES_FILE)
         franchise_entries.sort(key=lambda x: (-x[1], x[0]))
         for rank, (tag, count) in enumerate(franchise_entries):
             normalized = normalize_tag(tag)
@@ -114,7 +109,7 @@ def read_tag_records() -> list[TagRecord]:
 
     # Read character entities
     if os.path.exists(CHARACTERS_ENTITIES_FILE):
-        character_entries = _read_tag_pool_tsv(CHARACTERS_ENTITIES_FILE)
+        character_entries = read_tag_pool_tsv(CHARACTERS_ENTITIES_FILE)
         character_entries.sort(key=lambda x: (-x[1], x[0]))
         character_rank = 0
         for tag, count in character_entries:
@@ -400,10 +395,6 @@ def expand_wildcards(
     return (_unescape(result), diagnostics.messages)
 
 
-def normalize_tag(tag: str) -> str:
-    return tag.strip().replace(" ", "_")
-
-
 def _normalize_search_query(query: str) -> str:
     query = query.strip()
     if query.startswith("__"):
@@ -411,10 +402,6 @@ def _normalize_search_query(query: str) -> str:
     if query.endswith("__"):
         query = query[:-2]
     return query
-
-
-def display_tag(tag: str) -> str:
-    return tag.strip().replace("_", " ")
 
 
 def normalize_wildcard_id(value: str) -> str:
@@ -439,40 +426,6 @@ def _sort_tree(node: dict[str, Any]) -> dict[str, Any]:
     return node
 
 
-def _read_tag_pool_tsv(path: str) -> list[tuple[str, int]]:
-    """Read a tag pool TSV file, returning (tag, count) tuples."""
-    rows: list[tuple[str, int]] = []
-    with open(path, "r", encoding="utf-8", errors="replace") as f:
-        for line_number, line in enumerate(f):
-            if line_number == 0 and line.startswith("tag\t"):
-                continue  # skip header
-            parts = line.rstrip("\n").split("\t", 1)
-            if not parts or not parts[0].strip():
-                continue
-            tag = parts[0].strip()
-            count = 0
-            if len(parts) > 1:
-                try:
-                    count = int(parts[1].strip())
-                except (ValueError, TypeError):
-                    pass
-            rows.append((tag, count))
-    return rows
-
-
-def _read_tsv_keys(path: str) -> list[str]:
-    if not os.path.exists(path):
-        return []
-    keys: list[str] = []
-    with open(path, "r", encoding="utf-8", errors="replace") as f:
-        for line_number, line in enumerate(f):
-            key = line.partition("\t")[0].strip()
-            if not key or (line_number == 0 and key == "tag"):
-                continue
-            keys.append(key)
-    return keys
-
-
 def _read_wildcard_tags(path: str) -> list[WildcardTag]:
     tags: list[WildcardTag] = []
     with open(path, "r", encoding="utf-8", errors="replace") as f:
@@ -487,7 +440,7 @@ def _read_wildcard_tags(path: str) -> list[WildcardTag]:
 
 def _read_tag_pool_wildcard_tags(path: str) -> list[WildcardTag]:
     tags: list[WildcardTag] = []
-    for index, (tag, count) in enumerate(_read_tag_pool_tsv(path), start=2):
+    for index, (tag, count) in enumerate(read_tag_pool_tsv(path), start=2):
         weight = float(count) if count > 0 else 1.0
         tags.append(WildcardTag(text=display_tag(tag), weight=weight, line_number=index))
     return tags
