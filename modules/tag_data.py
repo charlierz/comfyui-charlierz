@@ -6,6 +6,8 @@ DATA_DIR = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "data"
 TAG_POOLS_DIR = os.path.join(DATA_DIR, "tag_pools")
 TAG_ENTITIES_DIR = os.path.join(DATA_DIR, "tag_entities")
 TAG_RELATIONSHIPS_DIR = os.path.join(DATA_DIR, "tag_relationships")
+CHARACTERS_ENTITIES_FILE = os.path.join(TAG_ENTITIES_DIR, "characters.tsv")
+FRANCHISES_FILE = os.path.join(TAG_ENTITIES_DIR, "franchises.tsv")
 
 # Map tag_pools top-level directories to prompt categories.
 POOL_CATEGORY_MAP = {

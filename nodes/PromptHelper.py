@@ -2,19 +2,26 @@ import json
 import os
 from typing import Any
 
-
-DATA_DIR = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "data"))
-TAG_CATEGORIES_DIR = os.path.join(DATA_DIR, "tag_categories")
-
-CATEGORY_TAG_FILES = {
-    "style_quality": "style_quality.txt",
-    "themes_roles": "themes_roles.txt",
-    "appearance_anatomy": "appearance_anatomy.txt",
-    "clothing_accessories": "clothing_accessories.txt",
-    "actions_poses": "actions_poses.txt",
-    "expressions": "expressions.txt",
-    "scene_background": "scene_background.txt",
-}
+try:
+    from ..modules.tag_data import (
+        FRANCHISES_FILE,
+        CHARACTERS_ENTITIES_FILE,
+        POOL_CATEGORY_MAP,
+        TAG_POOLS_DIR,
+        display_tag,
+        read_tag_pool_tsv,
+        read_tsv_keys,
+    )
+except ImportError:
+    from modules.tag_data import (
+        FRANCHISES_FILE,
+        CHARACTERS_ENTITIES_FILE,
+        POOL_CATEGORY_MAP,
+        TAG_POOLS_DIR,
+        display_tag,
+        read_tag_pool_tsv,
+        read_tsv_keys,
+    )
 
 
 CATEGORY_INPUTS = (
@@ -199,18 +206,30 @@ def _selected_categories(*flags: bool) -> list[str]:
 
 
 def _read_category_tags(category: str, max_tags: int) -> list[str]:
-    filename = CATEGORY_TAG_FILES.get(category)
-    if filename is None:
+    if category == "themes_roles":
+        tags = [*read_tsv_keys(FRANCHISES_FILE), *read_tsv_keys(CHARACTERS_ENTITIES_FILE)]
+        return _limit_tags([display_tag(tag) for tag in tags], max_tags)
+
+    pool_dirs = [directory for directory, mapped_category in POOL_CATEGORY_MAP.items() if mapped_category == category]
+    if not pool_dirs:
         raise ValueError(f"Unknown category: {category}")
 
-    path = os.path.join(TAG_CATEGORIES_DIR, filename)
-    with open(path, "r", encoding="utf-8") as f:
-        tags = [
-            tag.strip().replace("_", " ")
-            for tag in f.read().replace("\n", ",").split(",")
-            if tag.strip()
-        ]
+    tags: list[str] = []
+    for pool_dir in pool_dirs:
+        dir_path = os.path.join(TAG_POOLS_DIR, pool_dir)
+        if not os.path.isdir(dir_path):
+            continue
+        for root, _dirs, files in os.walk(dir_path):
+            for filename in sorted(files):
+                if not filename.endswith(".tsv"):
+                    continue
+                for tag, _count in read_tag_pool_tsv(os.path.join(root, filename)):
+                    tags.append(display_tag(tag))
 
+    return _limit_tags(list(dict.fromkeys(tags)), max_tags)
+
+
+def _limit_tags(tags: list[str], max_tags: int) -> list[str]:
     if max_tags > 0:
         return tags[:max_tags]
     return tags

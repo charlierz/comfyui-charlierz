@@ -1,4 +1,3 @@
-const tagCache = new Map();
 const relatedCache = new Map();
 const characterTagCache = new Map();
 let relatedMethodsCache = null;
@@ -12,22 +11,6 @@ export const CATEGORY_INPUTS = [
   "expressions",
   "scene_background",
 ];
-
-export async function loadTags(category) {
-  if (tagCache.has(category)) return tagCache.get(category);
-
-  const response = await fetch(
-    `/charlierz-prompt-helper/tags/${encodeURIComponent(category)}`,
-    { cache: "no-store" },
-  );
-  if (!response.ok) {
-    throw new Error(`Failed to load tags for ${category}: ${response.status}`);
-  }
-
-  const tags = await response.json();
-  tagCache.set(category, tags);
-  return tags;
-}
 
 export async function loadRelatedMethods() {
   if (relatedMethodsCache) return relatedMethodsCache;

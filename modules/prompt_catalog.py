@@ -126,11 +126,6 @@ def read_tag_records() -> list[TagRecord]:
 
 
 @lru_cache(maxsize=1)
-def tag_lookup() -> dict[str, TagRecord]:
-    return {record.normalized: record for record in read_tag_records()}
-
-
-@lru_cache(maxsize=1)
 def scan_wildcards() -> tuple[list[WildcardRecord], list[str]]:
     diagnostics: list[str] = []
     records: list[WildcardRecord] = []
@@ -234,7 +229,6 @@ def wildcard_map() -> tuple[dict[str, WildcardRecord], list[str]]:
 
 def clear_prompt_catalog_caches() -> None:
     read_tag_records.cache_clear()
-    tag_lookup.cache_clear()
     scan_wildcards.cache_clear()
     wildcard_map.cache_clear()
 
