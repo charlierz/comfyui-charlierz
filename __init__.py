@@ -1,3 +1,10 @@
+from .modules.tag_bootstrap import ensure_generated_tag_data
+
+try:
+    ensure_generated_tag_data()
+except Exception as e:
+    print(f"[comfyui-charlierz] Tag data bootstrap failed: {e}")
+
 from .modules import api
 from .nodes.MattingUtils import NODE_CLASS_MAPPINGS as MATTING_NCM
 from .nodes.MattingUtils import NODE_DISPLAY_NAME_MAPPINGS as MATTING_NDNM

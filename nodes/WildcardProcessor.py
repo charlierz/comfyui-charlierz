@@ -15,6 +15,7 @@ class WildcardProcessor:
                 "preview_text": ("STRING", {"multiline": True, "default": ""}),
                 "frozen": ("BOOLEAN", {"default": False}),
                 "seed": ("INT", {"default": 0, "min": 0, "max": 0xFFFFFFFFFFFFFFFF}),
+                "weight_mode": (["count", "sqrt", "log", "random"], {"default": "count"}),
             }
         }
 
@@ -23,13 +24,15 @@ class WildcardProcessor:
     FUNCTION = "process"
     CATEGORY = "charlierz/Prompt"
 
-    def process(self, wildcard_text: str, preview_text: str, frozen: bool, seed: int):
+    def process(self, wildcard_text: str, preview_text: str, frozen: bool, seed: int, weight_mode: str = "count"):
         if frozen:
             if not preview_text:
                 print("[charlierz wildcard] frozen selected with empty preview_text")
             return (preview_text,)
 
-        processed_text, _diagnostics = expand_wildcards(wildcard_text, seed=seed)
+        if weight_mode not in {"count", "sqrt", "log", "random"}:
+            weight_mode = "count"
+        processed_text, _diagnostics = expand_wildcards(wildcard_text, seed=seed, weight_mode=weight_mode)
         return (processed_text,)
 
 

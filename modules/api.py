@@ -8,39 +8,33 @@ from typing import Any
 import server
 from aiohttp import web
 
-from .prompt_catalog import expand_wildcards, get_wildcard_detail, list_wildcards, search_catalog
+from .prompt_catalog import WEIGHT_MODES, expand_wildcards, get_wildcard_detail, list_wildcards, search_catalog
 
 DATA_DIR = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "data"))
-TAG_CATEGORIES_DIR = os.path.join(DATA_DIR, "tag_categories")
-TAG_COOCCURRENCE_DIR = os.path.join(DATA_DIR, "tag_category_cooccurrence")
-GENERAL_TAGS_FILE = os.path.join(DATA_DIR, "general.txt")
-COPYRIGHT_TAGS_FILE = os.path.join(DATA_DIR, "copyrights.txt")
-CHARACTERS_FILE = os.path.join(DATA_DIR, "characters.tsv")
-CHARACTERS_ENTITIES_FILE = os.path.join(DATA_DIR, "tag_entities", "characters.tsv")
-FRANCHISES_FILE = os.path.join(DATA_DIR, "tag_entities", "franchises.tsv")
-CHARACTER_TAGS_FILE = os.path.join(DATA_DIR, "tag_relationships", "character_tags.tsv")
+TAG_POOLS_DIR = os.path.join(DATA_DIR, "tag_pools")
+TAG_ENTITIES_DIR = os.path.join(DATA_DIR, "tag_entities")
+TAG_RELATIONSHIPS_DIR = os.path.join(DATA_DIR, "tag_relationships")
+CHARACTERS_ENTITIES_FILE = os.path.join(TAG_ENTITIES_DIR, "characters.tsv")
+FRANCHISES_FILE = os.path.join(TAG_ENTITIES_DIR, "franchises.tsv")
+CHARACTER_TAGS_FILE = os.path.join(TAG_RELATIONSHIPS_DIR, "character_tags.tsv")
 
-CATEGORY_FILES = {
-    "style_quality": "style_quality.txt",
-    "themes_roles": "themes_roles.txt",
-    "appearance_anatomy": "appearance_anatomy.txt",
-    "clothing_accessories": "clothing_accessories.txt",
-    "actions_poses": "actions_poses.txt",
-    "expressions": "expressions.txt",
-    "scene_background": "scene_background.txt",
+# Map tag_pools top-level directories to prompt categories
+POOL_CATEGORY_MAP = {
+    "body": "appearance_anatomy",
+    "camera": "scene_background",
+    "clothes": "clothing_accessories",
+    "face": "expressions",
+    "pose": "actions_poses",
+    "scene": "scene_background",
+    "style": "style_quality",
+    "visual": "style_quality",
 }
 
-CATEGORY_EXTRA_TAG_FILES: dict[str, list[str]] = {}
-
-CATEGORY_EXTRA_TSV_KEY_FILES: dict[str, list[str]] = {
-    "themes_roles": [FRANCHISES_FILE, CHARACTERS_ENTITIES_FILE],
+# Map method names to tag_relationships filenames
+RELATED_METHOD_FILES = {
+    "jaccard": "related_tags_cosine_jaccard.tsv",
+    "lift": "related_tags_lift.tsv",
 }
-
-def _entity_or_legacy(primary: str, legacy: str) -> str:
-    if os.path.exists(primary):
-        return primary
-    return legacy
-
 
 EXCLUDED_RELATED_METHODS = {"conditional", "dice"}
 
@@ -96,6 +90,27 @@ def _split_tags(text: str) -> list[str]:
     return [tag.strip() for tag in text.replace("\n", ",").split(",") if tag.strip()]
 
 
+def _read_tag_pool_tsv(path: str) -> list[tuple[str, int]]:
+    """Read a tag pool TSV file, returning (tag, count) tuples."""
+    rows: list[tuple[str, int]] = []
+    with open(path, "r", encoding="utf-8", errors="replace") as f:
+        for line_number, line in enumerate(f):
+            if line_number == 0 and line.startswith("tag\t"):
+                continue  # skip header
+            parts = line.rstrip("\n").split("\t", 1)
+            if not parts or not parts[0].strip():
+                continue
+            tag = parts[0].strip()
+            count = 0
+            if len(parts) > 1:
+                try:
+                    count = int(parts[1].strip())
+                except (ValueError, TypeError):
+                    pass
+            rows.append((tag, count))
+    return rows
+
+
 def _read_tsv_keys(path: str) -> list[str]:
     keys: list[str] = []
     with open(path, "r", encoding="utf-8") as f:
@@ -110,7 +125,9 @@ def _read_tsv_keys(path: str) -> list[str]:
 @lru_cache(maxsize=1)
 def _read_character_tags() -> dict[str, list[str]]:
     characters: dict[str, list[str]] = {}
-    path = _entity_or_legacy(CHARACTER_TAGS_FILE, CHARACTERS_FILE)
+    path = CHARACTER_TAGS_FILE
+    if not os.path.exists(path):
+        return characters
     with open(path, "r", encoding="utf-8") as f:
         for line_number, line in enumerate(f):
             columns = line.rstrip("\n").split("\t")
@@ -125,61 +142,96 @@ def _read_character_tags() -> dict[str, list[str]]:
                 continue
 
             if character:
-                characters[character] = _split_tags(tags)
+                characters[_normalize_tag(character)] = _split_tags(tags)
     return characters
 
 
 @lru_cache(maxsize=1)
 def _read_category_index() -> dict[str, str]:
     category_index: dict[str, str] = {}
-    for category, filename in CATEGORY_FILES.items():
-        path = os.path.join(TAG_CATEGORIES_DIR, filename)
-        with open(path, "r", encoding="utf-8") as f:
-            for tag in _split_tags(f.read()):
-                category_index.setdefault(tag, category)
+    if not os.path.isdir(TAG_POOLS_DIR):
+        return category_index
+    for root, _dirs, files in os.walk(TAG_POOLS_DIR):
+        for filename in sorted(files):
+            if not filename.endswith(".tsv"):
+                continue
+            path = os.path.join(root, filename)
+            rel_path = os.path.relpath(path, TAG_POOLS_DIR)
+            top_dir = rel_path.split(os.sep)[0]
+            category = POOL_CATEGORY_MAP.get(top_dir)
+            if category is None:
+                continue
+            for tag, _count in _read_tag_pool_tsv(path):
+                normalized = _normalize_tag(tag)
+                category_index.setdefault(normalized, category)
     return category_index
 
 
+@lru_cache(maxsize=None)
 def _read_tags(category: str) -> list[str]:
-    if category == "general":
-        with open(GENERAL_TAGS_FILE, "r", encoding="utf-8") as f:
-            return _split_tags(f.read())
+    # Entity categories
     if category == "copyrights":
-        path = _entity_or_legacy(FRANCHISES_FILE, COPYRIGHT_TAGS_FILE)
-        return _read_tsv_keys(path)
+        if os.path.exists(FRANCHISES_FILE):
+            return _read_tsv_keys(FRANCHISES_FILE)
+        return []
     if category == "characters":
-        path = _entity_or_legacy(CHARACTERS_ENTITIES_FILE, CHARACTERS_FILE)
-        return _read_tsv_keys(path)
+        if os.path.exists(CHARACTERS_ENTITIES_FILE):
+            return _read_tsv_keys(CHARACTERS_ENTITIES_FILE)
+        return []
+    if category == "themes_roles":
+        tags: list[str] = []
+        if os.path.exists(FRANCHISES_FILE):
+            tags.extend(_read_tsv_keys(FRANCHISES_FILE))
+        if os.path.exists(CHARACTERS_ENTITIES_FILE):
+            tags.extend(_read_tsv_keys(CHARACTERS_ENTITIES_FILE))
+        return tags
 
-    filename = CATEGORY_FILES.get(category)
-    if filename is None:
+    # "general" returns all tags from all tag_pools
+    if category == "general":
+        all_tags: list[str] = []
+        if os.path.isdir(TAG_POOLS_DIR):
+            for root, _dirs, files in os.walk(TAG_POOLS_DIR):
+                for filename in sorted(files):
+                    if not filename.endswith(".tsv"):
+                        continue
+                    path = os.path.join(root, filename)
+                    for tag, _count in _read_tag_pool_tsv(path):
+                        all_tags.append(tag)
+        return list(dict.fromkeys(all_tags))
+
+    # Category-specific: map to tag_pools directories
+    pool_dirs = [d for d, cat in POOL_CATEGORY_MAP.items() if cat == category]
+    if not pool_dirs:
         raise ValueError(f"Unknown category: {category}")
 
-    tags: list[str] = []
-    path = os.path.join(TAG_CATEGORIES_DIR, filename)
-    with open(path, "r", encoding="utf-8") as f:
-        tags.extend(_split_tags(f.read()))
+    result: list[str] = []
+    for pool_dir in pool_dirs:
+        dir_path = os.path.join(TAG_POOLS_DIR, pool_dir)
+        if not os.path.isdir(dir_path):
+            continue
+        for root, _dirs, files in os.walk(dir_path):
+            for filename in sorted(files):
+                if not filename.endswith(".tsv"):
+                    continue
+                path = os.path.join(root, filename)
+                for tag, _count in _read_tag_pool_tsv(path):
+                    result.append(tag)
+    return list(dict.fromkeys(result))
 
-    for extra_path in CATEGORY_EXTRA_TAG_FILES.get(category, []):
-        with open(extra_path, "r", encoding="utf-8") as f:
-            tags.extend(_split_tags(f.read()))
 
-    for extra_path in CATEGORY_EXTRA_TSV_KEY_FILES.get(category, []):
-        tags.extend(_read_tsv_keys(extra_path))
-
-    return list(dict.fromkeys(tags))
-
-
+@lru_cache(maxsize=1)
 def _get_related_methods() -> list[str]:
-    if not os.path.isdir(TAG_COOCCURRENCE_DIR):
+    if not os.path.isdir(TAG_RELATIONSHIPS_DIR):
         return []
 
-    return sorted(
-        name
-        for name in os.listdir(TAG_COOCCURRENCE_DIR)
-        if os.path.isdir(os.path.join(TAG_COOCCURRENCE_DIR, name))
-        and name not in EXCLUDED_RELATED_METHODS
-    )
+    methods: list[str] = []
+    for method, filename in RELATED_METHOD_FILES.items():
+        if method in EXCLUDED_RELATED_METHODS:
+            continue
+        path = os.path.join(TAG_RELATIONSHIPS_DIR, filename)
+        if os.path.exists(path):
+            methods.append(method)
+    return sorted(methods)
 
 
 def _read_character_tag_groups(character: str) -> dict[str, object]:
@@ -189,7 +241,7 @@ def _read_character_tag_groups(character: str) -> dict[str, object]:
         raise ValueError(f"Unknown character: {character}")
 
     category_index = _read_category_index()
-    categories: dict[str, list[str]] = {category: [] for category in CATEGORY_FILES}
+    categories: dict[str, list[str]] = {category: [] for category in sorted(set(POOL_CATEGORY_MAP.values()))}
     uncategorized: list[str] = []
 
     for tag in character_tags:
@@ -206,32 +258,45 @@ def _read_character_tag_groups(character: str) -> dict[str, object]:
     }
 
 
-def _read_related(method: str, category: str, tag: str) -> list[str]:
+@lru_cache(maxsize=None)
+def _read_related_index(method: str) -> dict[str, list[str]]:
     if method not in _get_related_methods():
         raise ValueError(f"Unknown related-tag method: {method}")
 
-    filename = CATEGORY_FILES.get(category)
-    if filename is None:
-        raise ValueError(f"Unknown category: {category}")
+    filename = RELATED_METHOD_FILES.get(method)
+    if not filename:
+        raise ValueError(f"Unknown related-tag method: {method}")
 
-    tag = _normalize_tag(tag)
-    cooccurrence_filename = os.path.splitext(filename)[0] + ".tsv"
-    path = os.path.join(TAG_COOCCURRENCE_DIR, method, cooccurrence_filename)
+    path = os.path.join(TAG_RELATIONSHIPS_DIR, filename)
+    if not os.path.exists(path):
+        return {}
 
+    index: dict[str, list[str]] = {}
     with open(path, "r", encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if not line:
-                continue
-
+        for line_number, line in enumerate(f):
+            if line_number == 0 and line.startswith("tag\t"):
+                continue  # skip header
             source_tag, separator, related_tags = line.partition("\t")
             if not separator:
                 continue
+            value = related_tags.strip()
+            if value.startswith('"') and value.endswith('"'):
+                value = value[1:-1]
+            index[_normalize_tag(source_tag)] = [r.strip() for r in value.split(",") if r.strip()]
+    return index
 
-            if source_tag == tag:
-                return [related.strip() for related in related_tags.split(",") if related.strip()]
 
-    return []
+def _read_related(method: str, category: str, tag: str) -> list[str]:
+    del category  # Route compatibility; related files are currently method-wide.
+    return _read_related_index(method).get(_normalize_tag(tag), [])
+
+
+def clear_api_caches() -> None:
+    _read_character_tags.cache_clear()
+    _read_category_index.cache_clear()
+    _read_tags.cache_clear()
+    _get_related_methods.cache_clear()
+    _read_related_index.cache_clear()
 
 
 @server.PromptServer.instance.routes.get("/charlierz-llama-cpp/models")
@@ -268,7 +333,7 @@ async def unload_llama_cpp_model(request):
 
 @server.PromptServer.instance.routes.get("/charlierz-prompt-helper/categories")
 async def get_categories(_request):
-    return web.json_response(list(CATEGORY_FILES.keys()))
+    return web.json_response(sorted(set(POOL_CATEGORY_MAP.values())))
 
 
 @server.PromptServer.instance.routes.get("/charlierz-prompt-catalog/wildcards")
@@ -330,8 +395,11 @@ async def post_prompt_catalog_preview(request):
         seed = int(payload.get("seed", 0))
     except (TypeError, ValueError):
         seed = 0
+    weight_mode = str(payload.get("weightMode", "count"))
+    if weight_mode not in WEIGHT_MODES:
+        weight_mode = "count"
 
-    processed_text, diagnostics = expand_wildcards(text, seed=seed)
+    processed_text, diagnostics = expand_wildcards(text, seed=seed, weight_mode=weight_mode)  # type: ignore[arg-type]
     return web.json_response({"processedText": processed_text, "diagnostics": diagnostics})
 
 

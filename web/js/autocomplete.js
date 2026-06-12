@@ -51,13 +51,23 @@ function getTagValue(item) {
 
 function getTagLabel(item) {
   if (typeof item === "string") return item;
+  if (item.type === "wildcard") return item.id ?? item.label ?? item.insertText;
   return item.label ?? item.tag ?? item.insertText;
 }
 
+function formatCount(count) {
+  if (!count || count <= 0) return "";
+  if (count >= 1_000_000) return `${(count / 1_000_000).toFixed(1)}M`;
+  if (count >= 1_000) return `${(count / 1_000).toFixed(1)}k`;
+  return `${count}`;
+}
+
 function getCatalogBadge(item) {
-  if (typeof item === "string" || !item.type || item.type === "tag") return "tag";
+  if (typeof item === "string") return "tag";
+  if (!item.type || item.type === "tag") {
+    return CATEGORY_DISPLAY_NAMES[item.category] ?? item.category?.replaceAll("_", " ") ?? "tag";
+  }
   if (item.type === "wildcard") return "wildcard";
-  if (item.type === "wildcard_entry") return item.wildcardLabel ? `entry · ${item.wildcardLabel}` : "entry";
   return item.type;
 }
 
@@ -246,6 +256,7 @@ class TagPopup {
       event.stopPropagation();
       this.onSelect?.(this.items[Number(item.dataset.index)]);
     });
+
   }
 
   isVisible() {
@@ -260,9 +271,10 @@ class TagPopup {
     this.items = tags;
     this.selectedIndex = 0;
     this.onSelect = onSelect;
+    this.header.style.display = title ? "flex" : "none";
     this.title.innerHTML = "";
-    this.title.appendChild(document.createTextNode(title));
-    if (titleLinkTag) {
+    if (title) this.title.appendChild(document.createTextNode(title));
+    if (title && titleLinkTag) {
       const danbooruLink = document.createElement("span");
       danbooruLink.className = "charlierz-danbooru-link header-link";
       danbooruLink.dataset.tag = titleLinkTag;
@@ -294,6 +306,13 @@ class TagPopup {
       badge.className = `charlierz-result-badge charlierz-result-badge-${tagItem?.type ?? "tag"}`;
       badge.textContent = getCatalogBadge(tagItem);
       item.appendChild(badge);
+
+      if (tagItem?.count) {
+        const count = document.createElement("span");
+        count.className = "charlierz-result-count";
+        count.textContent = formatCount(tagItem.count);
+        item.appendChild(count);
+      }
 
       if (!tagItem?.type || tagItem.type === "tag") {
         const danbooruLink = document.createElement("span");
@@ -361,6 +380,7 @@ export class PromptHelperAutocomplete {
     this.relatedMethod =
       localStorage.getItem(RELATED_METHOD_STORAGE_KEY) ?? DEFAULT_RELATED_METHOD;
     this.currentRelatedRequest = null;
+    this.autocompleteRequestId = 0;
     this.#initializeRelatedMethodSelector();
     document.addEventListener("keydown", (event) => this.#handleDocumentKeyDown(event));
     document.addEventListener("pointerdown", (event) => this.#handleDocumentPointerDown(event), true);
@@ -368,6 +388,7 @@ export class PromptHelperAutocomplete {
 
   #hideAllPopups() {
     this.currentRelatedRequest = null;
+    this.autocompleteRequestId += 1;
     this.autocompletePopup.hide();
     this.relatedPopup.hide();
     this.characterTagsPopup.hide();
@@ -449,7 +470,7 @@ export class PromptHelperAutocomplete {
     textarea,
     source,
     {
-      enableRelatedTags = false,
+      enableRelatedTags = true,
       relatedCategory = source,
       prioritySources = [],
       node = null,
@@ -496,10 +517,12 @@ export class PromptHelperAutocomplete {
     const config = this.textareaConfig.get(textarea);
     const partial = getCurrentPartialTag(textarea);
     if (!config || !partial) {
+      this.autocompleteRequestId += 1;
       this.autocompletePopup.hide();
       return;
     }
 
+    const requestId = ++this.autocompleteRequestId;
     const catalogResult = await searchCatalog({
       query: partial,
       context: config.searchContext ?? "prompt",
@@ -507,6 +530,14 @@ export class PromptHelperAutocomplete {
       types: config.searchTypes ?? ["tag"],
       limit: MAX_AUTOCOMPLETE_RESULTS,
     });
+    if (
+      requestId !== this.autocompleteRequestId ||
+      this.textareaConfig.get(textarea) !== config ||
+      getCurrentPartialTag(textarea) !== partial
+    ) {
+      return;
+    }
+
     const matches = catalogResult.results ?? [];
     if (!matches.length) {
       this.autocompletePopup.hide();
@@ -516,7 +547,7 @@ export class PromptHelperAutocomplete {
     this.relatedPopup.hide();
     this.autocompletePopup.show(
       textarea,
-      config.source.replaceAll("_", " "),
+      config.source === "general" ? null : config.source.replaceAll("_", " "),
       matches,
       getExistingTags(textarea),
       (item) => this.#insertAutocompleteItem(textarea, item, config),
@@ -639,16 +670,14 @@ export class PromptHelperAutocomplete {
     }, 150);
   }
 
-  #insertAutocompleteItem(textarea, item, config) {
-    const range = getCurrentTagRange(textarea.value, textarea.selectionStart);
+  #insertAutocompleteItem(textarea, item, config, range = null) {
+    range ??= getCurrentTagRange(textarea.value, textarea.selectionStart);
     if (!range) return;
 
     const value = getTagValue(item);
     if (!value) return;
 
-    const isWildcardRef = item?.type === "wildcard";
-    const usePromptTagSuffix = !isWildcardRef;
-    const suffix = usePromptTagSuffix && textarea.value[range.end] !== "," ? ", " : "";
+    const suffix = textarea.value[range.end] !== "," ? ", " : "";
     insertText(textarea, range.start, textarea.selectionStart, `${value}${suffix}`);
     this.autocompletePopup.hide();
   }

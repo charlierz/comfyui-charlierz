@@ -38,6 +38,7 @@ Inputs:
 - `preview_text`: latest preview text; when frozen, this is the final output text.
 - `frozen`: when off, expands `wildcard_text`; when on, outputs `preview_text` exactly.
 - `seed`: deterministic random seed for generation.
+- `weight_mode`: tag-pool sampling weight transform: `count`, `sqrt`, `log`, or `random`.
 
 Output:
 
@@ -45,7 +46,7 @@ Output:
 
 Frontend buttons:
 
-- `Browse Wildcards`: opens a nested wildcard tree plus search/preview/insert browser for wildcards, entries, and tags. Selecting a wildcard shows its literal entries; click an entry to insert it as prompt text, or use `Insert` to insert the selected wildcard reference/result. Browser insertions are comma-separated from existing `wildcard_text`.
+- `Browse Wildcards`: opens a nested wildcard tree plus search/preview/insert browser for wildcards and tags. Selecting a wildcard shows its tags; click a tag to insert it as prompt text, or use `Insert` to insert the selected wildcard reference/result. Browser insertions are comma-separated from existing `wildcard_text`.
 - `Preview / Reroll`: randomizes `seed`, expands `wildcard_text` through the backend processor, and writes the result to `preview_text`.
 
 Freeze workflow:
@@ -55,18 +56,16 @@ Freeze workflow:
 3. Turn `frozen` on. The node now outputs `preview_text` exactly.
 4. Turn `frozen` off to resume generation from `wildcard_text`.
 
-Wildcard files live under `data/wildcards`. The executable first-class format is plain `.txt`; each non-empty, non-comment line is one entry. Full-line `#` comments and blank lines are ignored. YAML/JSON wildcard files are not executed initially.
-
-Wildcard IDs are path-based, case-insensitive, and normalize spaces to underscores. For example:
+Wildcard pools are backed by curated tag-pool TSVs under `data/tag_pools/**/*.tsv`. Each pool row is a prompt tag; the optional `count` column powers weighted sampling. Wildcard IDs are path-based, case-insensitive, and normalize spaces to underscores. For example:
 
 ```text
-data/wildcards/appearance/hair/color.txt -> __appearance/hair/color__
+data/tag_pools/body/hair/color.tsv -> __body/hair/color__
 ```
 
 Supported syntax:
 
 ```text
-__path/name__              # sample one entry from a wildcard file
+__path/name__              # sample one tag from a wildcard pool
 __path/*__                 # sample from matching one-level files
 __path/**__                # sample recursively from descendant files
 {red|blue|green}           # inline variant
@@ -76,7 +75,7 @@ __path/**__                # sample recursively from descendant files
 {2$$, $$red|blue|green}    # pick two with a custom separator
 ```
 
-Entries and selected variant options are expanded recursively, so wildcards can contain variants and variants can contain wildcard references. Expansion has cycle and depth protection. Missing, cyclic, empty, or depth-limited wildcards insert visible markers into `processed_text` and log diagnostics.
+Tags and selected variant options are expanded recursively, so wildcards can contain variants and variants can contain wildcard references. Expansion has cycle and depth protection. Missing, cyclic, empty, or depth-limited wildcards insert visible markers into `processed_text` and log diagnostics.
 
 Escaping uses backslashes for literal syntax characters where needed, such as `\{`, `\}`, `\|`, and `\_`.
 
@@ -117,8 +116,9 @@ No separate Python package installation is currently defined.
   - Tested with `llama-server` version `657 (0253fb2)`.
   - Uses `/v1/chat/completions`, `/models`, and `/models/unload`.
   - Sends `reasoning` and `chat_template_kwargs.enable_thinking` in chat payloads.
-- For normal Prompt Helper use, generated tag files are checked in.
-- For regenerating tag files, local source CSVs are required; follow `data/TAG_GENERATION.md`.
+- On startup, the plugin checks for generated tag files. If any are missing, it downloads the ignored Danbooru source CSVs and regenerates the missing runtime files.
+- To skip automatic tag-data bootstrap, set `COMFYUI_CHARLIERZ_SKIP_TAG_BOOTSTRAP=1` before starting ComfyUI.
+- For manual regeneration details, follow `data/TAG_GENERATION.md`.
 
 ## Data files
 
@@ -135,7 +135,7 @@ Legacy/generated Danbooru files may still exist during migration, but are not th
 - `tag_categories/*.txt`
 - `tag_category_cooccurrence/<metric>/*.tsv`
 
-Large source CSVs are intentionally ignored by git:
+Large source CSVs are intentionally ignored by git and downloaded on demand when generated runtime files are missing:
 
 - `data/danbooru_tags.csv`
 - `data/danbooru_tags_cooccurrence.csv`

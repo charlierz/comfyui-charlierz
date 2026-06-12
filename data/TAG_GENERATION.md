@@ -1,6 +1,8 @@
 # Tag data generation notes
 
-Some generated files in `data/tag_relationships/` are gitignored due to their large size (55MB+ each). Generate them locally from the source data.
+Some generated files in `data/tag_relationships/` are gitignored due to their large size (55MB+ each). The plugin automatically regenerates missing runtime tag files on startup by downloading the source CSVs as needed. Set `COMFYUI_CHARLIERZ_SKIP_TAG_BOOTSTRAP=1` to disable that startup bootstrap.
+
+You can also generate the files manually from the source data.
 
 ## Current target model
 
@@ -46,9 +48,9 @@ Large local inputs are downloaded from [`newtextdoc1111/danbooru-tag-csv`](https
 - `danbooru_tags.csv` — tag metadata: `tag,category,count,alias`; used to seed tag-pool counts and character/franchise data.
 - `danbooru_tags_cooccurrence.csv` — raw tag-pair cooccurrence data: `tag_a,tag_b,count`; used to generate relationship files.
 
-These CSVs are local/ignored inputs, not runtime source-of-truth data.
+These CSVs are local/ignored inputs, not runtime source-of-truth data. Startup bootstrap downloads them automatically when required.
 
-Download them from `data/`:
+To download them manually from `data/`:
 
 ```bash
 ./scripts/download_danbooru_tag_csv.py

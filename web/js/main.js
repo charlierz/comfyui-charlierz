@@ -2,10 +2,11 @@ import { app } from "/scripts/app.js";
 import { api } from "/scripts/api.js";
 import { ComfyWidgets } from "/scripts/widgets.js";
 import { PromptHelperAutocomplete } from "./autocomplete.js";
-import { CATEGORY_INPUTS } from "./data.js";
+import { CATEGORY_INPUTS, loadWildcardDetail } from "./data.js";
 
 const extensionId = "charlierz.PromptHelperAutocomplete";
 const autocomplete = new PromptHelperAutocomplete();
+const wildcardPreviewTextareas = new WeakSet();
 
 function loadCss() {
   const href = new URL("../css/prompt-helper.css", import.meta.url).href;
@@ -79,6 +80,20 @@ function flashInserted(button) {
   setTimeout(() => button.classList.remove("charlierz-insert-flash"), 140);
 }
 
+function attachWildcardProcessorPreview(element) {
+  if (wildcardPreviewTextareas.has(element)) return;
+  wildcardPreviewTextareas.add(element);
+
+  element.addEventListener("click", (event) => {
+    const ref = getWildcardRefAtCursor(element.value, element.selectionStart);
+    if (!ref) {
+      wildcardRefPreview.hide();
+      return;
+    }
+    wildcardRefPreview.show(ref, event);
+  });
+}
+
 function insertIntoWidget(node, name, text) {
   const widget = getWidget(node, name);
   if (!widget) return false;
@@ -99,6 +114,127 @@ function insertIntoWidget(node, name, text) {
   element.setSelectionRange(insertion.cursor, insertion.cursor);
   return true;
 }
+
+function formatCompactNumber(value) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return String(value);
+  if (number >= 1_000_000) return `${(number / 1_000_000).toFixed(1)}M`;
+  if (number >= 1_000) return `${(number / 1_000).toFixed(1)}k`;
+  return `${number}`;
+}
+
+function formatTagWeight(text, weight) {
+  return weight !== 1 ? `${text} · ${formatCompactNumber(weight)}` : text;
+}
+
+function formatWildcardLabel(label, count) {
+  return typeof count === "number" ? `${label} · ${count} tags` : label;
+}
+
+function getWildcardRefAtCursor(text, cursor) {
+  const refPattern = /__([^\s,]+?)__/g;
+  for (const match of text.matchAll(refPattern)) {
+    const start = match.index ?? 0;
+    const end = start + match[0].length;
+    if (cursor < start || cursor > end) continue;
+
+    const id = match[1].trim();
+    if (!id || id.includes("__")) continue;
+    return { id, start, end };
+  }
+  return null;
+}
+
+class WildcardRefPreview {
+  constructor() {
+    this.requestId = 0;
+    this.root = document.createElement("div");
+    this.root.className = "charlierz-wildcard-ref-preview";
+    this.root.style.display = "none";
+    document.body.appendChild(this.root);
+
+    const hideOnOutsideInteraction = (event) => {
+      if (this.root.style.display === "none") return;
+      if (this.root.contains(event.target)) return;
+      this.hide();
+    };
+    document.addEventListener("pointerdown", hideOnOutsideInteraction, true);
+    document.addEventListener("mousedown", hideOnOutsideInteraction, true);
+    document.addEventListener("click", hideOnOutsideInteraction, true);
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") this.hide();
+    });
+  }
+
+  hide() {
+    this.requestId += 1;
+    this.root.style.display = "none";
+    this.root.innerHTML = "";
+  }
+
+  async show(ref, event) {
+    const requestId = ++this.requestId;
+    this.root.innerHTML = `<div class="charlierz-wildcard-ref-preview-loading">Loading ${ref.id}…</div>`;
+    this.#position(event);
+    this.root.style.display = "block";
+
+    try {
+      const detail = await loadWildcardDetail(ref.id);
+      if (requestId !== this.requestId) return;
+      this.#render(ref, detail);
+      this.#position(event);
+    } catch (error) {
+      if (requestId !== this.requestId) return;
+      console.error("[PromptHelper] Failed to load wildcard preview", error);
+      this.root.innerHTML = `<div class="charlierz-wildcard-ref-preview-error">Wildcard not found: ${ref.id}</div>`;
+      this.#position(event);
+    }
+  }
+
+  #render(ref, detail) {
+    const tags = detail.tags ?? [];
+    const visibleTags = tags.slice(0, 80);
+    this.root.innerHTML = "";
+
+    const header = document.createElement("div");
+    header.className = "charlierz-wildcard-ref-preview-header";
+    header.textContent = formatWildcardLabel(ref.id, detail.tagCount ?? tags.length);
+    this.root.appendChild(header);
+
+    const list = document.createElement("div");
+    list.className = "charlierz-wildcard-ref-preview-tags";
+    for (const tag of visibleTags) {
+      const row = document.createElement("div");
+      row.textContent = formatTagWeight(tag.text, tag.weight);
+      list.appendChild(row);
+    }
+    this.root.appendChild(list);
+
+    if (tags.length > visibleTags.length) {
+      const more = document.createElement("div");
+      more.className = "charlierz-wildcard-ref-preview-more";
+      more.textContent = `Showing first ${visibleTags.length}`;
+      this.root.appendChild(more);
+    }
+  }
+
+  #position(event) {
+    const margin = 8;
+    const rect = this.root.getBoundingClientRect();
+    const left = Math.min(
+      Math.max(event.clientX + margin, margin),
+      window.innerWidth - rect.width - margin,
+    );
+    const top = Math.min(
+      Math.max(event.clientY + margin, margin),
+      window.innerHeight - rect.height - margin,
+    );
+    this.root.style.left = `${left}px`;
+    this.root.style.top = `${top}px`;
+  }
+}
+
+const wildcardRefPreview = new WildcardRefPreview();
 
 function addReadOnlyTextWidget(node, name) {
   const result = ComfyWidgets.STRING(
@@ -183,6 +319,7 @@ async function previewWildcardProcessor(node, { reroll = false } = {}) {
     body: JSON.stringify({
       text: getWidgetValue(node, "wildcard_text"),
       seed: getWidgetValue(node, "seed") || 0,
+      weightMode: getWidgetValue(node, "weight_mode") || "count",
     }),
   });
   const result = await response.json();
@@ -225,7 +362,7 @@ class WildcardBrowser {
     this.search = document.createElement("input");
     this.search.className = "charlierz-wildcard-browser-search";
     this.search.type = "search";
-    this.search.placeholder = "Search tags, wildcard paths, or entries";
+    this.search.placeholder = "Search tags or wildcard paths";
     searchBar.appendChild(this.search);
 
     this.filters = document.createElement("div");
@@ -233,7 +370,6 @@ class WildcardBrowser {
     this.filterInputs = new Map();
     for (const [type, label, checked] of [
       ["wildcard", "Wildcards", true],
-      ["wildcard_entry", "Entries", true],
       ["tag", "Tags", false],
     ]) {
       const filterLabel = document.createElement("label");
@@ -255,7 +391,7 @@ class WildcardBrowser {
     this.results.className = "charlierz-wildcard-browser-results";
     this.details = document.createElement("div");
     this.details.className = "charlierz-wildcard-browser-details";
-    this.details.innerHTML = "<div class='charlierz-wildcard-browser-empty'>Select a wildcard to view entries and preview.</div>";
+    this.details.innerHTML = "<div class='charlierz-wildcard-browser-empty'>Select a wildcard to view tags and preview.</div>";
     body.appendChild(this.results);
     body.appendChild(this.details);
     this.dialog.appendChild(body);
@@ -272,19 +408,26 @@ class WildcardBrowser {
     });
     this.filters.addEventListener("change", () => this.runSearch());
     this.results.addEventListener("mousedown", (event) => {
+      const insert = event.target.closest("[data-insert-result]");
+      if (insert) {
+        event.preventDefault();
+        event.stopPropagation();
+        const item = this.items[Number(insert.dataset.resultIndex)];
+        if (this.insertItem(item, { close: false })) flashInserted(insert);
+        return;
+      }
+
       const item = event.target.closest("[data-result-index]");
       if (!item) return;
       event.preventDefault();
       this.select(Number(item.dataset.resultIndex));
     });
+    this.results.addEventListener("click", (event) => {
+      if (!event.target.closest("[data-insert-result]")) return;
+      event.preventDefault();
+      event.stopPropagation();
+    });
     this.details.addEventListener("click", (event) => {
-      const reroll = event.target.closest("[data-reroll-preview]");
-      if (reroll) {
-        event.preventDefault();
-        this.previewSelected();
-        return;
-      }
-
       const selected = event.target.closest("[data-insert-selected]");
       if (selected) {
         event.preventDefault();
@@ -292,11 +435,11 @@ class WildcardBrowser {
         return;
       }
 
-      const entry = event.target.closest("[data-insert-entry]");
-      if (entry) {
+      const tag = event.target.closest("[data-insert-tag]");
+      if (tag) {
         event.preventDefault();
-        if (insertIntoWidget(this.node, "wildcard_text", entry.dataset.entryText)) {
-          flashInserted(entry);
+        if (insertIntoWidget(this.node, "wildcard_text", tag.dataset.tagText)) {
+          flashInserted(tag);
         }
       }
     });
@@ -369,7 +512,23 @@ class WildcardBrowser {
         details.className = "charlierz-wildcard-browser-tree-group";
         details.open = depth < 1;
         const summary = document.createElement("summary");
-        summary.textContent = child.label;
+        const summaryLabel = document.createElement("span");
+        summaryLabel.className = "charlierz-wildcard-browser-summary-label";
+        summaryLabel.textContent = child.id ? formatWildcardLabel(child.label, child.tagCount) : child.label;
+        summary.appendChild(summaryLabel);
+
+        if (child.id) {
+          const index = this.items.push(child) - 1;
+          const insert = document.createElement("button");
+          insert.type = "button";
+          insert.className = "charlierz-wildcard-browser-row-insert";
+          insert.dataset.insertResult = "true";
+          insert.dataset.resultIndex = `${index}`;
+          insert.textContent = "Insert wildcard";
+          insert.title = "Insert wildcard";
+          summary.appendChild(insert);
+        }
+
         details.appendChild(summary);
         parent.appendChild(details);
         this.renderTreeNode(child, details, depth + 1);
@@ -377,22 +536,10 @@ class WildcardBrowser {
       }
 
       const index = this.items.push(child) - 1;
-      const row = document.createElement("div");
-      row.className = "charlierz-wildcard-browser-result charlierz-wildcard-browser-tree-leaf";
-      row.dataset.resultIndex = `${index}`;
-      row.style.paddingLeft = `${8 + depth * 14}px`;
-      if (child === this.selected) row.classList.add("selected");
-
-      const label = document.createElement("div");
-      label.className = "charlierz-wildcard-browser-result-label";
-      label.textContent = child.label;
-      row.appendChild(label);
-
-      const meta = document.createElement("div");
-      meta.className = "charlierz-wildcard-browser-result-meta";
-      meta.textContent = `${child.id} · ${child.entryCount} entries`;
-      row.appendChild(meta);
-      parent.appendChild(row);
+      this.renderResultRow(child, index, parent, {
+        className: "charlierz-wildcard-browser-tree-leaf",
+        paddingLeft: 8 + depth * 14,
+      });
     }
   }
 
@@ -405,41 +552,68 @@ class WildcardBrowser {
 
     const groups = [
       ["wildcard", "Wildcards"],
-      ["wildcard_entry", "Entries"],
       ["tag", "Tags"],
     ];
     for (const [type, title] of groups) {
-      const entries = this.items
+      const results = this.items
         .map((item, index) => ({ item, index }))
         .filter(({ item }) => item.type === type);
-      if (!entries.length) continue;
+      if (!results.length) continue;
 
       const heading = document.createElement("div");
       heading.className = "charlierz-wildcard-browser-result-heading";
-      heading.textContent = `${title} (${entries.length})`;
+      heading.textContent = `${title} (${results.length})`;
       this.results.appendChild(heading);
 
-      for (const { item, index } of entries) {
-        this.renderResultRow(item, index, this.results);
+      for (const { item, index } of results) {
+        this.renderResultRow(item, index, this.results, { showPath: true });
       }
     }
   }
 
-  renderResultRow(item, index, parent) {
+  renderResultRow(item, index, parent, options = {}) {
     const row = document.createElement("div");
-    row.className = "charlierz-wildcard-browser-result";
+    row.className = `charlierz-wildcard-browser-result ${options.className ?? ""}`.trim();
     row.dataset.resultIndex = `${index}`;
+    if (typeof options.paddingLeft === "number") row.style.paddingLeft = `${options.paddingLeft}px`;
     if (item === this.selected) row.classList.add("selected");
+
+    const content = document.createElement("div");
+    content.className = "charlierz-wildcard-browser-result-content";
 
     const label = document.createElement("div");
     label.className = "charlierz-wildcard-browser-result-label";
-    label.textContent = item.label ?? item.insertText ?? item.id;
-    row.appendChild(label);
+    const defaultLabel = item.type === "wildcard" && item.tagCount
+      ? formatWildcardLabel(item.label ?? item.id, item.tagCount)
+      : item.label ?? item.insertText ?? item.id;
+    label.textContent = options.label ?? defaultLabel;
+    content.appendChild(label);
 
-    const meta = document.createElement("div");
-    meta.className = "charlierz-wildcard-browser-result-meta";
-    meta.textContent = item.type === "wildcard_entry" ? `entry in ${item.wildcardLabel}` : item.id ?? item.category ?? item.type;
-    row.appendChild(meta);
+    if (options.showPath && item.type === "wildcard" && item.id) {
+      const meta = document.createElement("div");
+      meta.className = "charlierz-wildcard-browser-result-meta";
+      meta.textContent = item.id;
+      content.appendChild(meta);
+    } else if (item.type !== "wildcard") {
+      const meta = document.createElement("div");
+      meta.className = "charlierz-wildcard-browser-result-meta";
+      meta.textContent = item.category ?? item.type;
+      content.appendChild(meta);
+    }
+
+    row.appendChild(content);
+
+    if (item.type === "wildcard") {
+      const insert = document.createElement("button");
+      insert.type = "button";
+      insert.className = "charlierz-wildcard-browser-row-insert";
+      insert.dataset.insertResult = "true";
+      insert.dataset.resultIndex = `${index}`;
+      insert.textContent = "Insert wildcard";
+      insert.title = "Insert wildcard";
+      row.appendChild(insert);
+    }
+
     parent.appendChild(row);
   }
 
@@ -449,107 +623,76 @@ class WildcardBrowser {
       row.classList.toggle("selected", Number(row.dataset.resultIndex) === index);
     }
     await this.renderDetails();
-    this.previewSelected();
   }
 
   async renderDetails() {
     this.details.innerHTML = "";
     if (!this.selected) {
-      this.details.innerHTML = "<div class='charlierz-wildcard-browser-empty'>Select a wildcard to view entries and preview.</div>";
+      this.details.innerHTML = "<div class='charlierz-wildcard-browser-empty'>Select a wildcard to view tags and preview.</div>";
       return;
+    }
+
+    let detail = null;
+    if (this.selected.type === "wildcard") {
+      const url = new URL("/charlierz-prompt-catalog/wildcard", window.location.origin);
+      url.searchParams.set("id", this.selected.id);
+      const response = await api.fetchApi(`${url.pathname}${url.search}`);
+      detail = await response.json();
+      if (!response.ok || detail.error) {
+        this.details.insertAdjacentHTML(
+          "beforeend",
+          `<div class='charlierz-wildcard-browser-empty'>${detail.error || response.status}</div>`,
+        );
+        return;
+      }
     }
 
     const header = document.createElement("div");
     header.className = "charlierz-wildcard-browser-detail-header";
 
     const title = document.createElement("span");
-    title.textContent = this.selected.label ?? this.selected.insertText ?? this.selected.id;
+    const titleText = this.selected.label ?? this.selected.insertText ?? this.selected.id;
+    title.textContent = detail ? formatWildcardLabel(titleText, detail.tagCount ?? detail.tags.length) : titleText;
     header.appendChild(title);
 
     const actions = document.createElement("div");
     actions.className = "charlierz-wildcard-browser-detail-actions";
 
-    const rerollButton = document.createElement("button");
-    rerollButton.type = "button";
-    rerollButton.dataset.rerollPreview = "true";
-    rerollButton.textContent = "Reroll preview";
-    actions.appendChild(rerollButton);
-
     const insertButton = document.createElement("button");
     insertButton.type = "button";
     insertButton.dataset.insertSelected = "true";
-    insertButton.textContent = this.selected.type === "wildcard" ? "Insert wildcard ref" : "Insert selected text";
+    insertButton.textContent = this.selected.type === "wildcard" ? "Insert wildcard" : "Insert selected text";
     actions.appendChild(insertButton);
 
     header.appendChild(actions);
     this.details.appendChild(header);
 
-    this.previewOutput = document.createElement("pre");
-    this.previewOutput.className = "charlierz-wildcard-browser-preview-output";
-    this.previewOutput.textContent = "Preview will appear here.";
-    this.details.appendChild(this.previewOutput);
+    if (!detail) return;
 
-    if (this.selected.type !== "wildcard") return;
-
-    const url = new URL("/charlierz-prompt-catalog/wildcard", window.location.origin);
-    url.searchParams.set("id", this.selected.id);
-    const response = await api.fetchApi(`${url.pathname}${url.search}`);
-    const detail = await response.json();
-    if (!response.ok || detail.error) {
-      this.details.insertAdjacentHTML(
-        "beforeend",
-        `<div class='charlierz-wildcard-browser-empty'>${detail.error || response.status}</div>`,
-      );
-      return;
-    }
-
-    const entriesTitle = document.createElement("div");
-    entriesTitle.className = "charlierz-wildcard-browser-entries-title";
-    entriesTitle.textContent = `Entries (${detail.entries.length})`;
-    this.details.appendChild(entriesTitle);
-
-    const entries = document.createElement("div");
-    entries.className = "charlierz-wildcard-browser-entries";
-    for (const entry of detail.entries) {
+    const tags = document.createElement("div");
+    tags.className = "charlierz-wildcard-browser-tags";
+    for (const tag of detail.tags) {
       const row = document.createElement("div");
-      row.className = "charlierz-wildcard-browser-entry";
+      row.className = "charlierz-wildcard-browser-tag";
+      row.dataset.insertTag = "true";
+      row.dataset.tagText = tag.text;
+      row.title = "Insert tag";
 
       const text = document.createElement("span");
-      text.textContent = entry.weight !== 1 ? `${entry.text} (${entry.weight})` : entry.text;
+      text.textContent = formatTagWeight(tag.text, tag.weight);
       row.appendChild(text);
-
-      const insert = document.createElement("button");
-      insert.type = "button";
-      insert.dataset.insertEntry = "true";
-      insert.dataset.entryText = entry.text;
-      insert.textContent = "Insert tag";
-      row.appendChild(insert);
-      entries.appendChild(row);
+      tags.appendChild(row);
     }
-    this.details.appendChild(entries);
-  }
-
-  async previewSelected() {
-    if (!this.selected) return;
-    const text = this.selected.type === "wildcard" ? this.selected.insertText : this.selected.insertText ?? this.selected.label;
-    const response = await api.fetchApi("/charlierz-prompt-catalog/preview", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text, seed: Math.floor(Math.random() * 0xffffffff) }),
-    });
-    const result = await response.json();
-    const output = this.previewOutput ?? this.details;
-    if (!response.ok || result.error) {
-      output.textContent = result.error || `Preview failed: ${response.status}`;
-      return;
-    }
-    const diagnostics = result.diagnostics?.length ? `\n\nDiagnostics:\n${result.diagnostics.join("\n")}` : "";
-    output.textContent = `${result.processedText ?? ""}${diagnostics}`;
+    this.details.appendChild(tags);
   }
 
   insertSelected({ close = true } = {}) {
-    if (!this.node || !this.selected) return false;
-    const inserted = insertIntoWidget(this.node, "wildcard_text", this.selected.insertText ?? this.selected.label ?? "");
+    return this.insertItem(this.selected, { close });
+  }
+
+  insertItem(item, { close = true } = {}) {
+    if (!this.node || !item) return false;
+    const inserted = insertIntoWidget(this.node, "wildcard_text", item.insertText ?? item.label ?? "");
     if (inserted && close) this.hide();
     return inserted;
   }
@@ -675,9 +818,11 @@ app.registerExtension({
         });
       } else if (isWildcardTemplateWidget(node, inputName)) {
         autocomplete.attach(element, "general", {
+          enableRelatedTags: false,
           searchContext: "wildcard",
-          searchTypes: ["wildcard", "tag", "wildcard_entry"],
+          searchTypes: ["wildcard", "tag"],
         });
+        attachWildcardProcessorPreview(element);
       } else {
         autocomplete.attach(element, "general");
       }

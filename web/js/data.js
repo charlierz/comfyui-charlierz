@@ -66,6 +66,18 @@ export async function loadCharacterTags(character) {
   return tags;
 }
 
+export async function loadWildcardDetail(id) {
+  const url = new URL("/charlierz-prompt-catalog/wildcard", window.location.origin);
+  url.searchParams.set("id", id);
+
+  const response = await fetch(url, { cache: "no-store" });
+  if (!response.ok) {
+    throw new Error(`Failed to load wildcard ${id}: ${response.status}`);
+  }
+
+  return response.json();
+}
+
 export async function searchCatalog({ query, context = "prompt", category = null, types = null, limit = 80 }) {
   const url = new URL("/charlierz-prompt-catalog/search", window.location.origin);
   url.searchParams.set("q", query);
