@@ -56,6 +56,21 @@ export async function loadCharacterTags(character) {
   return tags;
 }
 
+export async function decomposePromptText(text) {
+  const response = await fetch("/charlierz-prompt-helper/decompose", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text }),
+  });
+  const result = await response.json();
+  if (!response.ok) {
+    throw new Error(
+      result.error || `Failed to decompose prompt: ${response.status}`,
+    );
+  }
+  return result;
+}
+
 export async function loadPrompts() {
   const response = await fetch("/charlierz-prompt-catalog/prompts", {
     cache: "no-store",

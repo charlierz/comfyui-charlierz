@@ -3,6 +3,7 @@ import { api } from "/scripts/api.js";
 import { ComfyWidgets } from "/scripts/widgets.js";
 import { PromptHelperAutocomplete } from "./autocomplete.js";
 import {
+  decomposePromptText,
   deletePrompt,
   loadPromptCategories,
   loadPromptDetail,
@@ -19,6 +20,7 @@ const wildcardPreviewTextareas = new WeakSet();
 let promptCategories = [];
 let promptCategoryIds = new Set();
 let promptCategorySourceMap = new Map();
+const promptHelperFocusedCategory = new WeakMap();
 
 function loadCss() {
   const href = new URL("../css/prompt-helper.css", import.meta.url).href;
@@ -30,10 +32,12 @@ function loadCss() {
   document.head.appendChild(link);
 }
 
+function isPromptHelperNode(node) {
+  return node?.comfyClass === "PromptHelper";
+}
+
 function isPromptHelperWidget(node, inputName) {
-  return (
-    node?.comfyClass === "PromptHelper" && promptCategoryIds.has(inputName)
-  );
+  return isPromptHelperNode(node) && promptCategoryIds.has(inputName);
 }
 
 function hasPromptCategorySource(inputName, source) {
@@ -122,6 +126,19 @@ function flashInserted(button) {
   setTimeout(() => button.classList.remove("charlierz-insert-flash"), 140);
 }
 
+function getPromptHelperFocusedCategory(node) {
+  const focused = promptHelperFocusedCategory.get(node);
+  if (focused && promptCategoryIds.has(focused)) return focused;
+  return promptCategories[0]?.id ?? null;
+}
+
+function getPromptHelperText(node) {
+  return promptCategories
+    .map((category) => String(getWidgetValue(node, category.id) ?? "").trim())
+    .filter(Boolean)
+    .join("\n\n");
+}
+
 function attachWildcardProcessorPreview(element) {
   if (wildcardPreviewTextareas.has(element)) return;
   wildcardPreviewTextareas.add(element);
@@ -157,6 +174,82 @@ function insertIntoWidget(node, name, text, { mode = "comma" } = {}) {
   setWidgetValue(node, name, insertion.next);
   element.setSelectionRange(insertion.cursor, insertion.cursor);
   return true;
+}
+
+function insertIntoPromptHelper(
+  node,
+  text,
+  { mode = "comma", category = null, forceFocused = false } = {},
+) {
+  const targetCategory =
+    !forceFocused && category && promptCategoryIds.has(category)
+      ? category
+      : getPromptHelperFocusedCategory(node);
+  if (!targetCategory) return false;
+  return insertIntoWidget(node, targetCategory, text, { mode });
+}
+
+function normalizePromptToken(token) {
+  return String(token ?? "")
+    .trim()
+    .replace(/^\((.*):[0-9]+(?:\.[0-9]+)?\)$/, "$1")
+    .replace(/:[0-9]+(?:\.[0-9]+)?$/, "")
+    .replaceAll(" ", "_");
+}
+
+function getExistingPromptHelperCategoryTokens(node, category) {
+  return new Set(
+    String(getWidgetValue(node, category) ?? "")
+      .split(/[\n,]/)
+      .map(normalizePromptToken)
+      .filter(Boolean),
+  );
+}
+
+function filterNewPromptHelperTags(node, category, tags) {
+  const existing = getExistingPromptHelperCategoryTokens(node, category);
+  const accepted = [];
+  for (const tag of tags ?? []) {
+    const normalized = normalizePromptToken(tag);
+    if (!normalized || existing.has(normalized)) continue;
+    existing.add(normalized);
+    accepted.push(tag);
+  }
+  return accepted;
+}
+
+function appendDecomposedPrompt(
+  node,
+  decomposition,
+  { focusedText = "" } = {},
+) {
+  let inserted = false;
+  for (const [category, tags] of Object.entries(
+    decomposition.categories ?? {},
+  )) {
+    if (!promptCategoryIds.has(category) || !tags?.length) continue;
+    const newTags = filterNewPromptHelperTags(node, category, tags);
+    if (!newTags.length) continue;
+    inserted =
+      insertIntoPromptHelper(node, newTags.join(", "), {
+        category,
+        forceFocused: false,
+      }) || inserted;
+  }
+
+  const focusedCategory = getPromptHelperFocusedCategory(node);
+  const uncategorized = filterNewPromptHelperTags(
+    node,
+    focusedCategory,
+    decomposition.uncategorized ?? [],
+  );
+  if (uncategorized.length) {
+    inserted =
+      insertIntoPromptHelper(node, uncategorized.join(", "), {
+        forceFocused: true,
+      }) || inserted;
+  }
+  return inserted;
 }
 
 function formatCompactNumber(value) {
@@ -459,6 +552,15 @@ class WildcardBrowser {
       this.filters.appendChild(filterLabel);
     }
     searchBar.appendChild(this.filters);
+    this.decomposePromptLabel = document.createElement("label");
+    this.decomposePromptLabel.className = "charlierz-prompt-decompose-toggle";
+    this.decomposePromptInput = document.createElement("input");
+    this.decomposePromptInput.type = "checkbox";
+    this.decomposePromptLabel.appendChild(this.decomposePromptInput);
+    this.decomposePromptLabel.appendChild(
+      document.createTextNode("Decompose into categories"),
+    );
+    searchBar.appendChild(this.decomposePromptLabel);
     this.dialog.appendChild(searchBar);
 
     const body = document.createElement("div");
@@ -525,13 +627,14 @@ class WildcardBrowser {
       this.setTab("prompts"),
     );
     this.filters.addEventListener("change", () => this.runSearch());
-    this.results.addEventListener("mousedown", (event) => {
+    this.results.addEventListener("mousedown", async (event) => {
       const insert = event.target.closest("[data-insert-result]");
       if (insert) {
         event.preventDefault();
         event.stopPropagation();
         const item = this.items[Number(insert.dataset.resultIndex)];
-        if (this.insertItem(item, { close: false })) flashInserted(insert);
+        if (await this.insertItem(item, { close: false }))
+          flashInserted(insert);
         return;
       }
 
@@ -559,18 +662,23 @@ class WildcardBrowser {
         alert(error.message || String(error));
       }
     });
-    this.details.addEventListener("click", (event) => {
+    this.details.addEventListener("click", async (event) => {
       const selected = event.target.closest("[data-insert-selected]");
       if (selected) {
         event.preventDefault();
-        if (this.insertSelected({ close: false })) flashInserted(selected);
+        if (await this.insertSelected({ close: false }))
+          flashInserted(selected);
         return;
       }
 
       const tag = event.target.closest("[data-insert-tag]");
       if (tag) {
         event.preventDefault();
-        if (insertIntoWidget(this.node, "wildcard_text", tag.dataset.tagText)) {
+        if (
+          this.insertText(tag.dataset.tagText, {
+            category: tag.dataset.promptCategory || null,
+          })
+        ) {
           flashInserted(tag);
         }
       }
@@ -626,6 +734,10 @@ class WildcardBrowser {
       this.activeTab === "wildcards" ? "flex" : "none";
     this.promptActions.style.display =
       this.activeTab === "prompts" ? "flex" : "none";
+    this.decomposePromptLabel.style.display =
+      this.activeTab === "prompts" && isPromptHelperNode(this.node)
+        ? "inline-flex"
+        : "none";
     this.search.placeholder =
       this.activeTab === "prompts"
         ? "Search prompt names or text"
@@ -748,7 +860,9 @@ class WildcardBrowser {
       this.promptSelected = null;
       this.selected = null;
       this.promptIdInput.value = "";
-      this.promptEditor.value = getWidgetValue(this.node, "wildcard_text");
+      this.promptEditor.value = isPromptHelperNode(this.node)
+        ? getPromptHelperText(this.node)
+        : getWidgetValue(this.node, "wildcard_text");
       this.promptLoadedText = "";
       this.promptDirty = true;
       this.promptEditor.focus();
@@ -758,12 +872,18 @@ class WildcardBrowser {
     if (action === "insert") {
       if (!this.promptEditor.value.trim())
         throw new Error("Prompt text is empty");
-      if (
-        insertIntoWidget(this.node, "wildcard_text", this.promptEditor.value, {
-          mode: "block",
-        })
-      )
-        flashInserted(button);
+      const inserted =
+        isPromptHelperNode(this.node) && this.decomposePromptInput.checked
+          ? appendDecomposedPrompt(
+              this.node,
+              await decomposePromptText(this.promptEditor.value),
+              { focusedText: this.promptEditor.value },
+            )
+          : this.insertText(this.promptEditor.value, {
+              mode: "block",
+              forceFocused: true,
+            });
+      if (inserted) flashInserted(button);
       return;
     }
 
@@ -1068,6 +1188,9 @@ class WildcardBrowser {
       row.className = "charlierz-wildcard-browser-tag";
       row.dataset.insertTag = "true";
       row.dataset.tagText = tag.text;
+      if (detail.metadata?.promptCategory) {
+        row.dataset.promptCategory = detail.metadata.promptCategory;
+      }
       row.title = "Insert tag";
 
       const text = document.createElement("span");
@@ -1078,18 +1201,40 @@ class WildcardBrowser {
     this.details.appendChild(tags);
   }
 
-  insertSelected({ close = true } = {}) {
+  async insertSelected({ close = true } = {}) {
     return this.insertItem(this.selected, { close });
   }
 
-  insertItem(item, { close = true } = {}) {
+  insertText(
+    text,
+    { mode = "comma", category = null, forceFocused = false } = {},
+  ) {
+    if (!this.node) return false;
+    if (isPromptHelperNode(this.node)) {
+      return insertIntoPromptHelper(this.node, text, {
+        mode,
+        category,
+        forceFocused,
+      });
+    }
+    return insertIntoWidget(this.node, "wildcard_text", text, { mode });
+  }
+
+  async insertItem(item, { close = true } = {}) {
     if (!this.node || !item) return false;
-    const inserted = insertIntoWidget(
-      this.node,
-      "wildcard_text",
-      item.insertText ?? item.label ?? "",
-      { mode: item.type === "prompt" ? "block" : "comma" },
-    );
+    const text = item.insertText ?? item.label ?? "";
+    const inserted =
+      isPromptHelperNode(this.node) &&
+      item.type === "prompt" &&
+      this.decomposePromptInput.checked
+        ? appendDecomposedPrompt(this.node, await decomposePromptText(text), {
+            focusedText: text,
+          })
+        : this.insertText(text, {
+            mode: item.type === "prompt" ? "block" : "comma",
+            category: item.promptCategory ?? item.category ?? null,
+            forceFocused: item.type === "prompt",
+          });
     if (inserted && close) this.hide();
     return inserted;
   }
@@ -1138,6 +1283,17 @@ app.registerExtension({
         if (this.tokenEstimateWidget && message.text?.[0]) {
           this.tokenEstimateWidget.value = message.text[0];
         }
+      };
+      return;
+    }
+
+    if (nodeData.name === "PromptHelper") {
+      const originalOnNodeCreated = nodeType.prototype.onNodeCreated;
+      nodeType.prototype.onNodeCreated = function () {
+        originalOnNodeCreated?.apply(this, arguments);
+        this.addWidget("button", "Prompt Catalog", null, () => {
+          wildcardBrowser.show(this);
+        });
       };
       return;
     }
@@ -1229,6 +1385,9 @@ app.registerExtension({
           });
         }
 
+        element.addEventListener("focus", () => {
+          promptHelperFocusedCategory.set(node, inputName);
+        });
         autocomplete.attach(element, "general", {
           enableRelatedTags: true,
           relatedCategory: inputName,
@@ -1236,6 +1395,7 @@ app.registerExtension({
           node,
           categoryName: inputName,
         });
+        attachWildcardProcessorPreview(element);
       } else if (isWildcardTemplateWidget(node, inputName)) {
         autocomplete.attach(element, "general", {
           enableRelatedTags: false,

@@ -214,6 +214,37 @@ def _read_related_detail(method: str, category: str, tag: str) -> dict[str, obje
     }
 
 
+def _category_for_wildcard_token(token: str) -> str | None:
+    stripped = token.strip()
+    if not (stripped.startswith("__") and stripped.endswith("__")):
+        return None
+    wildcard_id = stripped[2:-2].strip().split("/", 1)[0]
+    if not wildcard_id or "*" in wildcard_id:
+        return None
+    return tag_pool_category_map().get(wildcard_id)
+
+
+def _decompose_prompt_text(text: str) -> dict[str, object]:
+    category_index = _read_tag_categories_index()
+    categories: dict[str, list[str]] = {category: [] for category in prompt_category_ids()}
+    uncategorized: list[str] = []
+
+    for tag in _split_tags(text):
+        category = _category_for_wildcard_token(tag)
+        if category is None:
+            category = (category_index.get(normalize_tag(tag)) or [None])[0]
+
+        if category is None:
+            uncategorized.append(tag)
+        else:
+            categories.setdefault(category, []).append(tag)
+
+    return {
+        "categories": {category: tags for category, tags in categories.items() if tags},
+        "uncategorized": uncategorized,
+    }
+
+
 def clear_api_caches() -> None:
     clear_prompt_category_cache()
     _read_character_tags.cache_clear()
@@ -261,6 +292,16 @@ async def get_prompt_helper_categories(_request):
         return web.json_response(prompt_categories_json())
     except ValueError as e:
         return web.json_response({"error": str(e)}, status=500)
+
+
+@server.PromptServer.instance.routes.post("/charlierz-prompt-helper/decompose")
+async def post_prompt_helper_decompose(request):
+    try:
+        payload = await request.json()
+    except json.JSONDecodeError:
+        return web.json_response({"error": "Invalid JSON body"}, status=400)
+
+    return web.json_response(_decompose_prompt_text(str(payload.get("text", ""))))
 
 
 @server.PromptServer.instance.routes.get("/charlierz-prompt-catalog/wildcards")

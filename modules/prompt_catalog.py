@@ -260,6 +260,7 @@ def get_wildcard_detail(wildcard_id: str) -> dict[str, Any]:
         "insertText": f"__{record.id}__",
         "path": record.path,
         "tagCount": len(record.tags),
+        "promptCategory": record.metadata.get("promptCategory"),
         "tags": [
             {"text": tag.text, "weight": tag.weight, "lineNumber": tag.line_number}
             for tag in record.tags
@@ -292,6 +293,7 @@ def list_wildcards() -> dict[str, Any]:
             "insertText": f"__{record.id}__",
             "path": record.path,
             "tagCount": len(record.tags),
+            "promptCategory": record.metadata.get("promptCategory"),
         }
         if isinstance(existing, dict) and existing.get("type") == "directory":
             existing.update({k: v for k, v in wildcard_node.items() if k != "type"})
@@ -569,6 +571,7 @@ def search_catalog(
                     "label": tag.label,
                     "insertText": tag.label,
                     "category": tag.category,
+                    "promptCategory": _tag_prompt_category(tag),
                     "priorityClass": _tag_priority_class(tag, category),
                     "count": tag.count,
                     "matchTier": _tag_match_tier(tag, normalized_query),
@@ -590,6 +593,7 @@ def search_catalog(
                         "insertText": f"__{wildcard.id}__",
                         "path": wildcard.path,
                         "tagCount": len(wildcard.tags),
+                        "promptCategory": wildcard.metadata.get("promptCategory"),
                         "matchTier": match_tier,
                         "segmentIndex": segment_index,
                         "depth": wildcard.id.count("/"),
@@ -720,6 +724,23 @@ def _parse_weighted_text(text: str) -> tuple[float, str]:
     except ValueError:
         return (1.0, text)
     return (max(weight, 0.0), value.strip())
+
+
+def _tag_prompt_category(tag: TagRecord) -> str | None:
+    if tag.category == "characters":
+        return _category_for_source("tag_entities/characters")
+    if tag.category == "copyrights":
+        return _category_for_source("tag_entities/franchises")
+    if tag.category in prompt_category_source_map():
+        return tag.category
+    return None
+
+
+def _category_for_source(source: str) -> str | None:
+    for category_id, prompt_category in prompt_category_source_map().items():
+        if source in prompt_category.sources:
+            return category_id
+    return None
 
 
 def _tag_priority_class(tag: TagRecord, category: str | None) -> str | None:
