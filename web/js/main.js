@@ -25,7 +25,9 @@ function isPromptHelperWidget(node, inputName) {
 }
 
 function isWildcardTemplateWidget(node, inputName) {
-  return node?.comfyClass === "WildcardProcessor" && inputName === "wildcard_text";
+  return (
+    node?.comfyClass === "WildcardProcessor" && inputName === "wildcard_text"
+  );
 }
 
 function isAutocompleteElement(element) {
@@ -101,7 +103,12 @@ function insertIntoWidget(node, name, text) {
   const element = widget.element ?? widget.inputEl;
   if (!element || typeof element.selectionStart !== "number") {
     const current = String(widget.value ?? "");
-    const insertion = commaSeparatedInsertion(current, current.length, current.length, text);
+    const insertion = commaSeparatedInsertion(
+      current,
+      current.length,
+      current.length,
+      text,
+    );
     return setWidgetValue(node, name, insertion.next);
   }
 
@@ -198,7 +205,10 @@ class WildcardRefPreview {
 
     const header = document.createElement("div");
     header.className = "charlierz-wildcard-ref-preview-header";
-    header.textContent = formatWildcardLabel(ref.id, detail.tagCount ?? tags.length);
+    header.textContent = formatWildcardLabel(
+      ref.id,
+      detail.tagCount ?? tags.length,
+    );
     this.root.appendChild(header);
 
     const list = document.createElement("div");
@@ -250,11 +260,17 @@ function addReadOnlyTextWidget(node, name) {
   return widget;
 }
 
-function setComboWidgetValues(widget, values) {
-  widget.options ??= {};
-  widget.options.values = values;
+function setLlamaCppModelWidgetValues(node, widget, values) {
+  if (Array.isArray(widget.options?.values)) {
+    widget.options.values = values;
+    if (!values.includes(widget.value)) {
+      setWidgetValue(node, widget.name, values[0] ?? "");
+    }
+    return;
+  }
+
   if (!values.includes(widget.value)) {
-    widget.value = values[0] ?? "";
+    setWidgetValue(node, widget.name, values[0] ?? "");
   }
 }
 
@@ -304,7 +320,7 @@ async function reloadLlamaCppModels(node) {
   if (!modelWidget) {
     throw new Error("Model widget not found");
   }
-  setComboWidgetValues(modelWidget, models);
+  setLlamaCppModelWidgetValues(node, modelWidget, models);
   node.setDirtyCanvas(true, true);
 }
 
@@ -324,13 +340,19 @@ async function previewWildcardProcessor(node, { reroll = false } = {}) {
   });
   const result = await response.json();
   if (!response.ok || result.error) {
-    throw new Error(result.error || `Preview failed with HTTP ${response.status}`);
+    throw new Error(
+      result.error || `Preview failed with HTTP ${response.status}`,
+    );
   }
 
   const diagnostics = result.diagnostics?.length
     ? `\n\nDiagnostics:\n${result.diagnostics.join("\n")}`
     : "";
-  setWidgetValue(node, "preview_text", `${result.processedText ?? ""}${diagnostics}`);
+  setWidgetValue(
+    node,
+    "preview_text",
+    `${result.processedText ?? ""}${diagnostics}`,
+  );
 }
 
 class WildcardBrowser {
@@ -391,7 +413,8 @@ class WildcardBrowser {
     this.results.className = "charlierz-wildcard-browser-results";
     this.details = document.createElement("div");
     this.details.className = "charlierz-wildcard-browser-details";
-    this.details.innerHTML = "<div class='charlierz-wildcard-browser-empty'>Select a wildcard to view tags and preview.</div>";
+    this.details.innerHTML =
+      "<div class='charlierz-wildcard-browser-empty'>Select a wildcard to view tags and preview.</div>";
     body.appendChild(this.results);
     body.appendChild(this.details);
     this.dialog.appendChild(body);
@@ -483,11 +506,15 @@ class WildcardBrowser {
       .filter(([_type, input]) => input.checked)
       .map(([type]) => type);
     if (!types.length) {
-      this.results.innerHTML = "<div class='charlierz-wildcard-browser-empty'>Select at least one result type.</div>";
+      this.results.innerHTML =
+        "<div class='charlierz-wildcard-browser-empty'>Select at least one result type.</div>";
       return;
     }
 
-    const url = new URL("/charlierz-prompt-catalog/search", window.location.origin);
+    const url = new URL(
+      "/charlierz-prompt-catalog/search",
+      window.location.origin,
+    );
     url.searchParams.set("q", query);
     url.searchParams.set("context", "wildcard");
     url.searchParams.set("types", types.join(","));
@@ -514,7 +541,9 @@ class WildcardBrowser {
         const summary = document.createElement("summary");
         const summaryLabel = document.createElement("span");
         summaryLabel.className = "charlierz-wildcard-browser-summary-label";
-        summaryLabel.textContent = child.id ? formatWildcardLabel(child.label, child.tagCount) : child.label;
+        summaryLabel.textContent = child.id
+          ? formatWildcardLabel(child.label, child.tagCount)
+          : child.label;
         summary.appendChild(summaryLabel);
 
         if (child.id) {
@@ -546,7 +575,8 @@ class WildcardBrowser {
   renderGroupedResults() {
     this.results.innerHTML = "";
     if (!this.items.length) {
-      this.results.innerHTML = "<div class='charlierz-wildcard-browser-empty'>No results.</div>";
+      this.results.innerHTML =
+        "<div class='charlierz-wildcard-browser-empty'>No results.</div>";
       return;
     }
 
@@ -573,9 +603,11 @@ class WildcardBrowser {
 
   renderResultRow(item, index, parent, options = {}) {
     const row = document.createElement("div");
-    row.className = `charlierz-wildcard-browser-result ${options.className ?? ""}`.trim();
+    row.className =
+      `charlierz-wildcard-browser-result ${options.className ?? ""}`.trim();
     row.dataset.resultIndex = `${index}`;
-    if (typeof options.paddingLeft === "number") row.style.paddingLeft = `${options.paddingLeft}px`;
+    if (typeof options.paddingLeft === "number")
+      row.style.paddingLeft = `${options.paddingLeft}px`;
     if (item === this.selected) row.classList.add("selected");
 
     const content = document.createElement("div");
@@ -583,9 +615,10 @@ class WildcardBrowser {
 
     const label = document.createElement("div");
     label.className = "charlierz-wildcard-browser-result-label";
-    const defaultLabel = item.type === "wildcard" && item.tagCount
-      ? formatWildcardLabel(item.label ?? item.id, item.tagCount)
-      : item.label ?? item.insertText ?? item.id;
+    const defaultLabel =
+      item.type === "wildcard" && item.tagCount
+        ? formatWildcardLabel(item.label ?? item.id, item.tagCount)
+        : (item.label ?? item.insertText ?? item.id);
     label.textContent = options.label ?? defaultLabel;
     content.appendChild(label);
 
@@ -620,7 +653,10 @@ class WildcardBrowser {
   async select(index) {
     this.selected = this.items[index] ?? null;
     for (const row of this.results.querySelectorAll("[data-result-index]")) {
-      row.classList.toggle("selected", Number(row.dataset.resultIndex) === index);
+      row.classList.toggle(
+        "selected",
+        Number(row.dataset.resultIndex) === index,
+      );
     }
     await this.renderDetails();
   }
@@ -628,13 +664,17 @@ class WildcardBrowser {
   async renderDetails() {
     this.details.innerHTML = "";
     if (!this.selected) {
-      this.details.innerHTML = "<div class='charlierz-wildcard-browser-empty'>Select a wildcard to view tags and preview.</div>";
+      this.details.innerHTML =
+        "<div class='charlierz-wildcard-browser-empty'>Select a wildcard to view tags and preview.</div>";
       return;
     }
 
     let detail = null;
     if (this.selected.type === "wildcard") {
-      const url = new URL("/charlierz-prompt-catalog/wildcard", window.location.origin);
+      const url = new URL(
+        "/charlierz-prompt-catalog/wildcard",
+        window.location.origin,
+      );
       url.searchParams.set("id", this.selected.id);
       const response = await api.fetchApi(`${url.pathname}${url.search}`);
       detail = await response.json();
@@ -651,8 +691,11 @@ class WildcardBrowser {
     header.className = "charlierz-wildcard-browser-detail-header";
 
     const title = document.createElement("span");
-    const titleText = this.selected.label ?? this.selected.insertText ?? this.selected.id;
-    title.textContent = detail ? formatWildcardLabel(titleText, detail.tagCount ?? detail.tags.length) : titleText;
+    const titleText =
+      this.selected.label ?? this.selected.insertText ?? this.selected.id;
+    title.textContent = detail
+      ? formatWildcardLabel(titleText, detail.tagCount ?? detail.tags.length)
+      : titleText;
     header.appendChild(title);
 
     const actions = document.createElement("div");
@@ -661,7 +704,10 @@ class WildcardBrowser {
     const insertButton = document.createElement("button");
     insertButton.type = "button";
     insertButton.dataset.insertSelected = "true";
-    insertButton.textContent = this.selected.type === "wildcard" ? "Insert wildcard" : "Insert selected text";
+    insertButton.textContent =
+      this.selected.type === "wildcard"
+        ? "Insert wildcard"
+        : "Insert selected text";
     actions.appendChild(insertButton);
 
     header.appendChild(actions);
@@ -692,7 +738,11 @@ class WildcardBrowser {
 
   insertItem(item, { close = true } = {}) {
     if (!this.node || !item) return false;
-    const inserted = insertIntoWidget(this.node, "wildcard_text", item.insertText ?? item.label ?? "");
+    const inserted = insertIntoWidget(
+      this.node,
+      "wildcard_text",
+      item.insertText ?? item.label ?? "",
+    );
     if (inserted && close) this.hide();
     return inserted;
   }

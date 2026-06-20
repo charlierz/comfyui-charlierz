@@ -1,11 +1,24 @@
 import base64
 import io
 import json
-import urllib.error
-import urllib.request
 from typing import Any
 
 from PIL import Image
+
+try:
+    from ..modules.llama_cpp_client import (
+        get_json,
+        normalize_server_url,
+        post_json,
+        unload_model,
+    )
+except ImportError:
+    from modules.llama_cpp_client import (
+        get_json,
+        normalize_server_url,
+        post_json,
+        unload_model,
+    )
 
 
 class LlamaCppChat:
@@ -50,6 +63,12 @@ class LlamaCppChat:
     FUNCTION = "chat"
     CATEGORY = "charlierz/LLM"
 
+    @classmethod
+    def VALIDATE_INPUTS(cls, model=None):
+        if model is not None and not str(model).strip():
+            return "model is required"
+        return True
+
     def chat(
         self,
         server_url,
@@ -61,7 +80,7 @@ class LlamaCppChat:
         timeout_seconds,
         unload_after_run,
     ):
-        server_url = _normalize_server_url(server_url)
+        server_url = normalize_server_url(server_url)
         model = model.strip()
         if not model:
             raise ValueError("model is required")
@@ -79,22 +98,17 @@ class LlamaCppChat:
         )
 
         try:
-            response = _post_json(
+            response = post_json(
                 f"{server_url}/v1/chat/completions",
                 payload,
                 timeout_seconds,
             )
             content = _extract_chat_content(response)
             usage = _extract_usage(response)
+            return (content, json.dumps(usage, ensure_ascii=False, indent=2))
         finally:
             if unload_after_run:
-                _post_json(
-                    f"{server_url}/models/unload",
-                    {"model": model},
-                    min(timeout_seconds, 60),
-                )
-
-        return (content, json.dumps(usage, ensure_ascii=False, indent=2))
+                unload_model(server_url, model, min(timeout_seconds, 60))
 
 
 class LlamaCppVisionChat:
@@ -140,6 +154,12 @@ class LlamaCppVisionChat:
     FUNCTION = "chat"
     CATEGORY = "charlierz/LLM"
 
+    @classmethod
+    def VALIDATE_INPUTS(cls, model=None):
+        if model is not None and not str(model).strip():
+            return "model is required"
+        return True
+
     def chat(
         self,
         image,
@@ -152,7 +172,7 @@ class LlamaCppVisionChat:
         timeout_seconds,
         unload_after_run,
     ):
-        server_url = _normalize_server_url(server_url)
+        server_url = normalize_server_url(server_url)
         model = model.strip()
         if not model:
             raise ValueError("model is required")
@@ -185,29 +205,18 @@ class LlamaCppVisionChat:
         )
 
         try:
-            response = _post_json(
+            response = post_json(
                 f"{server_url}/v1/chat/completions",
                 payload,
                 timeout_seconds,
             )
             content = _extract_chat_content(response)
             usage = _extract_usage(response)
+            return (content, json.dumps(usage, ensure_ascii=False, indent=2))
         finally:
             if unload_after_run:
-                _post_json(
-                    f"{server_url}/models/unload",
-                    {"model": model},
-                    min(timeout_seconds, 60),
-                )
+                unload_model(server_url, model, min(timeout_seconds, 60))
 
-        return (content, json.dumps(usage, ensure_ascii=False, indent=2))
-
-
-def _normalize_server_url(server_url: str) -> str:
-    server_url = server_url.strip().rstrip("/")
-    if not server_url:
-        raise ValueError("server_url is required")
-    return server_url
 
 
 def _build_chat_payload(
@@ -225,42 +234,6 @@ def _build_chat_payload(
     if seed >= 0:
         payload["seed"] = seed
     return payload
-
-
-def _get_json(url: str, timeout_seconds: int) -> Any:
-    try:
-        with urllib.request.urlopen(url, timeout=timeout_seconds) as response:
-            text = response.read().decode("utf-8")
-    except urllib.error.HTTPError as e:
-        body = e.read().decode("utf-8", errors="replace")
-        raise RuntimeError(f"llama.cpp server returned HTTP {e.code}: {body}") from e
-    except urllib.error.URLError as e:
-        raise RuntimeError(f"Failed to reach llama.cpp server: {e.reason}") from e
-
-    if not text:
-        return {}
-    return json.loads(text)
-
-
-def _post_json(url: str, payload: dict[str, Any], timeout_seconds: int) -> Any:
-    request = urllib.request.Request(
-        url,
-        data=json.dumps(payload).encode("utf-8"),
-        headers={"Content-Type": "application/json"},
-        method="POST",
-    )
-    try:
-        with urllib.request.urlopen(request, timeout=timeout_seconds) as response:
-            text = response.read().decode("utf-8")
-    except urllib.error.HTTPError as e:
-        body = e.read().decode("utf-8", errors="replace")
-        raise RuntimeError(f"llama.cpp server returned HTTP {e.code}: {body}") from e
-    except urllib.error.URLError as e:
-        raise RuntimeError(f"Failed to reach llama.cpp server: {e.reason}") from e
-
-    if not text:
-        return {}
-    return json.loads(text)
 
 
 def _image_to_png_data_url(image: Any) -> str:
@@ -287,7 +260,7 @@ def _image_to_png_data_url(image: Any) -> str:
 
 
 def _get_llama_models_data(server_url: str, timeout_seconds: int) -> list[dict[str, Any]]:
-    response = _get_json(f"{server_url}/models", timeout_seconds)
+    response = get_json(f"{server_url}/models", timeout_seconds)
     if isinstance(response, dict):
         data = response.get("data", response.get("models", []))
     else:
