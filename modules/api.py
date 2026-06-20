@@ -23,12 +23,17 @@ from .prompt_catalog import (
     search_prompts,
 )
 from .tag_data import (
-    POOL_CATEGORY_MAP,
-    TAG_ENTITIES_DIR,
+    ENTITY_SOURCE_FILES,
     TAG_POOLS_DIR,
     TAG_RELATIONSHIPS_DIR,
+    clear_prompt_category_cache,
     normalize_tag,
+    prompt_categories_json,
+    prompt_category_ids,
+    prompt_category_source_map,
     read_tag_pool_tsv,
+    read_tsv_keys,
+    tag_pool_category_map,
 )
 
 CHARACTER_TAGS_FILE = os.path.join(TAG_RELATIONSHIPS_DIR, "character_tags.tsv")
@@ -82,12 +87,38 @@ def _read_category_index() -> dict[str, str]:
             path = os.path.join(root, filename)
             rel_path = os.path.relpath(path, TAG_POOLS_DIR)
             top_dir = rel_path.split(os.sep)[0]
-            category = POOL_CATEGORY_MAP.get(top_dir)
+            category = tag_pool_category_map().get(top_dir)
             if category is None:
                 continue
             for tag, _count in read_tag_pool_tsv(path):
                 normalized = normalize_tag(tag)
                 category_index.setdefault(normalized, category)
+    return category_index
+
+
+@lru_cache(maxsize=1)
+def _read_tag_categories_index() -> dict[str, list[str]]:
+    category_index: dict[str, list[str]] = {}
+    for category_id, category in prompt_category_source_map().items():
+        for source in category.sources:
+            if source.startswith("tag_pools/"):
+                pool = source.removeprefix("tag_pools/")
+                dir_path = os.path.join(TAG_POOLS_DIR, pool)
+                if not os.path.isdir(dir_path):
+                    continue
+                for root, _dirs, files in os.walk(dir_path):
+                    for filename in sorted(files):
+                        if not filename.endswith(".tsv"):
+                            continue
+                        for tag, _count in read_tag_pool_tsv(os.path.join(root, filename)):
+                            categories = category_index.setdefault(normalize_tag(tag), [])
+                            if category_id not in categories:
+                                categories.append(category_id)
+            elif source in ENTITY_SOURCE_FILES:
+                for tag in read_tsv_keys(ENTITY_SOURCE_FILES[source]):
+                    categories = category_index.setdefault(normalize_tag(tag), [])
+                    if category_id not in categories:
+                        categories.append(category_id)
     return category_index
 
 
@@ -113,7 +144,7 @@ def _read_character_tag_groups(character: str) -> dict[str, object]:
         raise ValueError(f"Unknown character: {character}")
 
     category_index = _read_category_index()
-    categories: dict[str, list[str]] = {category: [] for category in sorted(set(POOL_CATEGORY_MAP.values()))}
+    categories: dict[str, list[str]] = {category: [] for category in prompt_category_ids()}
     uncategorized: list[str] = []
 
     for tag in character_tags:
@@ -163,9 +194,31 @@ def _read_related(method: str, category: str, tag: str) -> list[str]:
     return _read_related_index(method).get(normalize_tag(tag), [])
 
 
+def _read_related_detail(method: str, category: str, tag: str) -> dict[str, object]:
+    normalized_tag = normalize_tag(tag)
+    category_index = _read_tag_categories_index()
+    return {
+        "tag": normalized_tag,
+        "clickedCategory": category,
+        "categories": category_index.get(normalized_tag, []),
+        "related": [
+            {
+                "tag": related_tag,
+                "label": related_tag.replace("_", " "),
+                "insertText": related_tag.replace("_", " "),
+                "category": (category_index.get(normalize_tag(related_tag)) or [None])[0],
+                "categories": category_index.get(normalize_tag(related_tag), []),
+            }
+            for related_tag in _read_related(method, category, tag)
+        ],
+    }
+
+
 def clear_api_caches() -> None:
+    clear_prompt_category_cache()
     _read_character_tags.cache_clear()
     _read_category_index.cache_clear()
+    _read_tag_categories_index.cache_clear()
     _get_related_methods.cache_clear()
     _read_related_index.cache_clear()
 
@@ -200,6 +253,14 @@ async def unload_llama_cpp_model(request):
         return web.json_response(result)
     except (RuntimeError, ValueError) as e:
         return web.json_response({"error": str(e)}, status=400)
+
+
+@server.PromptServer.instance.routes.get("/charlierz-prompt-helper/categories")
+async def get_prompt_helper_categories(_request):
+    try:
+        return web.json_response(prompt_categories_json())
+    except ValueError as e:
+        return web.json_response({"error": str(e)}, status=500)
 
 
 @server.PromptServer.instance.routes.get("/charlierz-prompt-catalog/wildcards")
@@ -378,7 +439,7 @@ async def get_related(request):
         return web.json_response([])
 
     try:
-        return web.json_response(_read_related(method, category, tag))
+        return web.json_response(_read_related_detail(method, category, tag))
     except ValueError as e:
         return web.json_response({"error": str(e)}, status=400)
     except FileNotFoundError:

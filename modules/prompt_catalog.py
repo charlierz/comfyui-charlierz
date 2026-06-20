@@ -11,18 +11,19 @@ from typing import Any, Literal
 
 from .tag_data import (
     DATA_DIR,
-    POOL_CATEGORY_MAP,
-    TAG_ENTITIES_DIR,
+    CHARACTERS_ENTITIES_FILE,
+    FRANCHISES_FILE,
     TAG_POOLS_DIR,
+    clear_prompt_category_cache,
     display_tag,
     normalize_tag,
+    prompt_category_source_map,
     read_tag_pool_tsv,
+    tag_pool_category_map,
 )
 
 WILDCARDS_DIR = os.path.join(DATA_DIR, "wildcards")
 PROMPTS_DIR = os.path.join(DATA_DIR, "prompts")
-CHARACTERS_ENTITIES_FILE = os.path.join(TAG_ENTITIES_DIR, "characters.tsv")
-FRANCHISES_FILE = os.path.join(TAG_ENTITIES_DIR, "franchises.tsv")
 
 MAX_EXPANSION_DEPTH = 32
 WeightMode = Literal["count", "sqrt", "log", "random"]
@@ -86,7 +87,7 @@ def read_tag_records() -> list[TagRecord]:
                 path = os.path.join(root, filename)
                 rel_path = os.path.relpath(path, TAG_POOLS_DIR)
                 top_dir = rel_path.split(os.sep)[0]
-                category = POOL_CATEGORY_MAP.get(top_dir)
+                category = tag_pool_category_map().get(top_dir)
                 if category is None:
                     continue
 
@@ -201,7 +202,7 @@ def scan_wildcards() -> tuple[list[WildcardRecord], list[str]]:
                         metadata={
                             "displayName": display_wildcard_label(wildcard_id),
                             "sourceType": "tag_pool",
-                            "promptCategory": POOL_CATEGORY_MAP.get(wildcard_id.split("/", 1)[0]),
+                            "promptCategory": tag_pool_category_map().get(wildcard_id.split("/", 1)[0]),
                         },
                     )
                 )
@@ -221,7 +222,7 @@ def scan_wildcards() -> tuple[list[WildcardRecord], list[str]]:
                     metadata={
                         "displayName": display_wildcard_label(directory_id),
                         "sourceType": "tag_pool_directory",
-                        "promptCategory": POOL_CATEGORY_MAP.get(directory_id.split("/", 1)[0]),
+                        "promptCategory": tag_pool_category_map().get(directory_id.split("/", 1)[0]),
                         "sourceCount": len(sources),
                     },
                 )
@@ -237,6 +238,7 @@ def wildcard_map() -> tuple[dict[str, WildcardRecord], list[str]]:
 
 
 def clear_prompt_catalog_caches() -> None:
+    clear_prompt_category_cache()
     read_tag_records.cache_clear()
     scan_wildcards.cache_clear()
     wildcard_map.cache_clear()
@@ -721,13 +723,18 @@ def _parse_weighted_text(text: str) -> tuple[float, str]:
 
 
 def _tag_priority_class(tag: TagRecord, category: str | None) -> str | None:
-    if category == "themes_roles" and tag.category == "characters":
+    if category and tag.category == "characters" and _category_has_source(category, "tag_entities/characters"):
         return "character-priority-match"
-    if category == "themes_roles" and tag.category == "copyrights":
+    if category and tag.category == "copyrights" and _category_has_source(category, "tag_entities/franchises"):
         return "copyright-priority-match"
     if category and tag.category == category:
         return "category-priority-match"
     return None
+
+
+def _category_has_source(category: str, source: str) -> bool:
+    prompt_category = prompt_category_source_map().get(category)
+    return prompt_category is not None and source in prompt_category.sources
 
 
 def _tag_match_tier(tag: TagRecord, normalized_query: str) -> int | None:
@@ -754,7 +761,9 @@ def _tag_score(tag: TagRecord, normalized_query: str, category: str | None) -> i
         score += 400
     if category and tag.category == category:
         score += 300
-    if category == "themes_roles" and tag.category in {"characters", "copyrights"}:
+    if category and tag.category == "characters" and _category_has_source(category, "tag_entities/characters"):
+        score += 350
+    if category and tag.category == "copyrights" and _category_has_source(category, "tag_entities/franchises"):
         score += 350
     score -= min(tag.rank, 2000) // 5
     return score

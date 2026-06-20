@@ -1,16 +1,21 @@
 const relatedCache = new Map();
 const characterTagCache = new Map();
 let relatedMethodsCache = null;
+let promptCategoriesCache = null;
 
-export const CATEGORY_INPUTS = [
-  "style_quality",
-  "themes_roles",
-  "appearance_anatomy",
-  "clothing_accessories",
-  "actions_poses",
-  "expressions",
-  "scene_background",
-];
+export async function loadPromptCategories() {
+  if (promptCategoriesCache) return promptCategoriesCache;
+
+  const response = await fetch("/charlierz-prompt-helper/categories", {
+    cache: "no-store",
+  });
+  if (!response.ok) {
+    throw new Error(`Failed to load prompt categories: ${response.status}`);
+  }
+
+  promptCategoriesCache = await response.json();
+  return promptCategoriesCache;
+}
 
 export async function loadRelatedMethods() {
   if (relatedMethodsCache) return relatedMethodsCache;
@@ -198,7 +203,7 @@ export async function loadRelatedTags(method, category, tag) {
     );
   }
 
-  const tags = await response.json();
-  relatedCache.set(key, tags);
-  return tags;
+  const detail = await response.json();
+  relatedCache.set(key, detail);
+  return detail;
 }

@@ -113,7 +113,13 @@
   background: var(--comfy-hover-bg);
 }
 
-#charlierz-prompt-helper-autocomplete .charlierz-tag-popup-item.selected {
+#charlierz-prompt-helper-autocomplete .charlierz-tag-popup-item:hover,
+#charlierz-prompt-helper-related .charlierz-tag-popup-item:hover {
+  background: inherit;
+}
+
+#charlierz-prompt-helper-autocomplete .charlierz-tag-popup-item.selected,
+#charlierz-prompt-helper-related .charlierz-tag-popup-item.selected {
   background: rgb(96 165 250 / 28%);
   box-shadow: inset 3px 0 0 var(--p-blue-400, #60a5fa);
 }

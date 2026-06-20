@@ -4,46 +4,37 @@ from typing import Any
 
 try:
     from ..modules.tag_data import (
-        FRANCHISES_FILE,
-        CHARACTERS_ENTITIES_FILE,
-        POOL_CATEGORY_MAP,
+        ENTITY_SOURCE_FILES,
         TAG_POOLS_DIR,
         display_tag,
+        prompt_category_ids,
+        prompt_category_source_map,
         read_tag_pool_tsv,
         read_tsv_keys,
     )
 except ImportError:
     from modules.tag_data import (
-        FRANCHISES_FILE,
-        CHARACTERS_ENTITIES_FILE,
-        POOL_CATEGORY_MAP,
+        ENTITY_SOURCE_FILES,
         TAG_POOLS_DIR,
         display_tag,
+        prompt_category_ids,
+        prompt_category_source_map,
         read_tag_pool_tsv,
         read_tsv_keys,
     )
 
 
-CATEGORY_INPUTS = (
-    "style_quality",
-    "themes_roles",
-    "appearance_anatomy",
-    "clothing_accessories",
-    "actions_poses",
-    "expressions",
-    "scene_background",
-)
+def _category_inputs() -> tuple[str, ...]:
+    return prompt_category_ids()
 
 
 class PromptHelper:
-    CATEGORY_INPUTS = CATEGORY_INPUTS
-
     @classmethod
     def INPUT_TYPES(cls):
         return {
             "required": {
                 name: ("STRING", {"multiline": True, "default": ""})
-                for name in cls.CATEGORY_INPUTS
+                for name in _category_inputs()
             }
         }
 
@@ -52,28 +43,10 @@ class PromptHelper:
     FUNCTION = "combine"
     CATEGORY = "charlierz/Prompt"
 
-    def combine(
-        self,
-        style_quality,
-        themes_roles,
-        appearance_anatomy,
-        clothing_accessories,
-        actions_poses,
-        expressions,
-        scene_background,
-    ):
-        structured_prompt = {
-            "style_quality": style_quality,
-            "themes_roles": themes_roles,
-            "appearance_anatomy": appearance_anatomy,
-            "clothing_accessories": clothing_accessories,
-            "actions_poses": actions_poses,
-            "expressions": expressions,
-            "scene_background": scene_background,
-        }
-        parts = tuple(structured_prompt.values())
+    def combine(self, **kwargs):
+        structured_prompt = {category: str(kwargs.get(category, "")) for category in _category_inputs()}
         return (
-            "\n\n".join(parts),
+            _combine_structured_prompt(structured_prompt),
             json.dumps(structured_prompt, ensure_ascii=False, indent=2),
         )
 
@@ -81,16 +54,14 @@ class PromptHelper:
 class PromptHelperFillRequest:
     @classmethod
     def INPUT_TYPES(cls):
+        fill_flags = {
+            f"fill_{category}": ("BOOLEAN", {"default": False})
+            for category in _category_inputs()
+        }
         return {
             "required": {
                 "structured_prompt": ("STRING", {"multiline": True, "default": "{}"}),
-                "fill_style_quality": ("BOOLEAN", {"default": False}),
-                "fill_themes_roles": ("BOOLEAN", {"default": False}),
-                "fill_appearance_anatomy": ("BOOLEAN", {"default": False}),
-                "fill_clothing_accessories": ("BOOLEAN", {"default": False}),
-                "fill_actions_poses": ("BOOLEAN", {"default": False}),
-                "fill_expressions": ("BOOLEAN", {"default": False}),
-                "fill_scene_background": ("BOOLEAN", {"default": False}),
+                **fill_flags,
                 "clear_selected_categories": ("BOOLEAN", {"default": False}),
                 "include_category_tags": ("BOOLEAN", {"default": False}),
                 "max_tags_per_category": ("INT", {"default": 500, "min": 0, "max": 10000}),
@@ -103,30 +74,8 @@ class PromptHelperFillRequest:
     FUNCTION = "build"
     CATEGORY = "charlierz/Prompt"
 
-    def build(
-        self,
-        structured_prompt,
-        fill_style_quality,
-        fill_themes_roles,
-        fill_appearance_anatomy,
-        fill_clothing_accessories,
-        fill_actions_poses,
-        fill_expressions,
-        fill_scene_background,
-        clear_selected_categories,
-        include_category_tags,
-        max_tags_per_category,
-        user_prompt,
-    ):
-        selected_categories = _selected_categories(
-            fill_style_quality,
-            fill_themes_roles,
-            fill_appearance_anatomy,
-            fill_clothing_accessories,
-            fill_actions_poses,
-            fill_expressions,
-            fill_scene_background,
-        )
+    def build(self, structured_prompt, clear_selected_categories, include_category_tags, max_tags_per_category, user_prompt, **kwargs):
+        selected_categories = _selected_categories(kwargs)
         if not selected_categories:
             raise ValueError("Select at least one category to fill")
 
@@ -201,30 +150,31 @@ class PromptHelperFillApply:
         return (_combine_structured_prompt(result), json.dumps(result, ensure_ascii=False, indent=2))
 
 
-def _selected_categories(*flags: bool) -> list[str]:
-    return [category for category, enabled in zip(CATEGORY_INPUTS, flags, strict=True) if enabled]
+def _selected_categories(values: dict[str, Any]) -> list[str]:
+    return [category for category in _category_inputs() if values.get(f"fill_{category}")]
 
 
 def _read_category_tags(category: str, max_tags: int) -> list[str]:
-    if category == "themes_roles":
-        tags = [*read_tsv_keys(FRANCHISES_FILE), *read_tsv_keys(CHARACTERS_ENTITIES_FILE)]
-        return _limit_tags([display_tag(tag) for tag in tags], max_tags)
-
-    pool_dirs = [directory for directory, mapped_category in POOL_CATEGORY_MAP.items() if mapped_category == category]
-    if not pool_dirs:
+    categories = prompt_category_source_map()
+    prompt_category = categories.get(category)
+    if prompt_category is None:
         raise ValueError(f"Unknown category: {category}")
 
     tags: list[str] = []
-    for pool_dir in pool_dirs:
-        dir_path = os.path.join(TAG_POOLS_DIR, pool_dir)
-        if not os.path.isdir(dir_path):
-            continue
-        for root, _dirs, files in os.walk(dir_path):
-            for filename in sorted(files):
-                if not filename.endswith(".tsv"):
-                    continue
-                for tag, _count in read_tag_pool_tsv(os.path.join(root, filename)):
-                    tags.append(display_tag(tag))
+    for source in prompt_category.sources:
+        if source.startswith("tag_pools/"):
+            pool = source.removeprefix("tag_pools/")
+            dir_path = os.path.join(TAG_POOLS_DIR, pool)
+            if not os.path.isdir(dir_path):
+                continue
+            for root, _dirs, files in os.walk(dir_path):
+                for filename in sorted(files):
+                    if not filename.endswith(".tsv"):
+                        continue
+                    for tag, _count in read_tag_pool_tsv(os.path.join(root, filename)):
+                        tags.append(display_tag(tag))
+        elif source in ENTITY_SOURCE_FILES:
+            tags.extend(display_tag(tag) for tag in read_tsv_keys(ENTITY_SOURCE_FILES[source]))
 
     return _limit_tags(list(dict.fromkeys(tags)), max_tags)
 
@@ -263,7 +213,7 @@ def _normalize_structured_prompt(
     include_missing: bool = True,
 ) -> dict[str, str]:
     normalized: dict[str, str] = {}
-    for category in CATEGORY_INPUTS:
+    for category in _category_inputs():
         if category in structured_prompt:
             value = structured_prompt[category]
             normalized[category] = value if isinstance(value, str) else json.dumps(value, ensure_ascii=False)
@@ -273,7 +223,7 @@ def _normalize_structured_prompt(
 
 
 def _combine_structured_prompt(structured_prompt: dict[str, str]) -> str:
-    return "\n\n".join(structured_prompt.get(category, "") for category in CATEGORY_INPUTS)
+    return "\n\n".join(structured_prompt.get(category, "") for category in _category_inputs())
 
 
 NODE_CLASS_MAPPINGS = {

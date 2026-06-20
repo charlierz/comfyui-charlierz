@@ -1,25 +1,114 @@
 from __future__ import annotations
 
+import json
 import os
+import re
+from dataclasses import dataclass
+from functools import lru_cache
+from typing import Any
 
 DATA_DIR = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "data"))
 TAG_POOLS_DIR = os.path.join(DATA_DIR, "tag_pools")
 TAG_ENTITIES_DIR = os.path.join(DATA_DIR, "tag_entities")
 TAG_RELATIONSHIPS_DIR = os.path.join(DATA_DIR, "tag_relationships")
+PROMPT_CATEGORIES_FILE = os.path.join(DATA_DIR, "prompt_categories.json")
 CHARACTERS_ENTITIES_FILE = os.path.join(TAG_ENTITIES_DIR, "characters.tsv")
 FRANCHISES_FILE = os.path.join(TAG_ENTITIES_DIR, "franchises.tsv")
 
-# Map tag_pools top-level directories to prompt categories.
-POOL_CATEGORY_MAP = {
-    "body": "appearance_anatomy",
-    "camera": "scene_background",
-    "clothes": "clothing_accessories",
-    "face": "expressions",
-    "pose": "actions_poses",
-    "scene": "scene_background",
-    "style": "style_quality",
-    "visual": "style_quality",
+PROMPT_CATEGORY_ID_PATTERN = re.compile(r"^[a-z][a-z0-9_]*$")
+ENTITY_SOURCE_FILES = {
+    "tag_entities/characters": CHARACTERS_ENTITIES_FILE,
+    "tag_entities/franchises": FRANCHISES_FILE,
 }
+
+
+@dataclass(frozen=True)
+class PromptCategory:
+    id: str
+    sources: tuple[str, ...]
+
+    @property
+    def tag_pool_sources(self) -> tuple[str, ...]:
+        return tuple(source.removeprefix("tag_pools/") for source in self.sources if source.startswith("tag_pools/"))
+
+    @property
+    def entity_sources(self) -> tuple[str, ...]:
+        return tuple(source for source in self.sources if source.startswith("tag_entities/"))
+
+
+@lru_cache(maxsize=1)
+def read_prompt_categories() -> tuple[PromptCategory, ...]:
+    with open(PROMPT_CATEGORIES_FILE, "r", encoding="utf-8") as f:
+        raw = json.load(f)
+
+    if not isinstance(raw, dict) or not isinstance(raw.get("categories"), list):
+        raise ValueError("prompt_categories.json must contain a categories array")
+
+    categories: list[PromptCategory] = []
+    seen_ids: set[str] = set()
+    seen_tag_pools: dict[str, str] = {}
+    for index, item in enumerate(raw["categories"]):
+        if not isinstance(item, dict):
+            raise ValueError(f"Category #{index + 1} must be an object")
+        category_id = item.get("id")
+        sources = item.get("sources")
+        if not isinstance(category_id, str) or not PROMPT_CATEGORY_ID_PATTERN.fullmatch(category_id):
+            raise ValueError(f"Category #{index + 1} has invalid id: {category_id!r}")
+        if category_id in seen_ids:
+            raise ValueError(f"Duplicate prompt category id: {category_id}")
+        if not isinstance(sources, list) or not sources or not all(isinstance(source, str) and source for source in sources):
+            raise ValueError(f"Category {category_id} must define a non-empty sources array")
+
+        normalized_sources: list[str] = []
+        for source in sources:
+            source = source.strip().replace(os.sep, "/")
+            if source.startswith("tag_pools/"):
+                pool = source.removeprefix("tag_pools/").strip("/")
+                if not pool or "/" in pool:
+                    raise ValueError(f"Category {category_id} has invalid tag pool source: {source}")
+                previous = seen_tag_pools.get(pool)
+                if previous is not None:
+                    raise ValueError(f"Tag pool source tag_pools/{pool} is used by both {previous} and {category_id}")
+                seen_tag_pools[pool] = category_id
+                path = os.path.join(TAG_POOLS_DIR, pool)
+                if not os.path.isdir(path):
+                    print(f"[comfyui-charlierz] Prompt category {category_id} source missing: {source}")
+                normalized_sources.append(f"tag_pools/{pool}")
+            elif source in ENTITY_SOURCE_FILES:
+                if not os.path.exists(ENTITY_SOURCE_FILES[source]):
+                    print(f"[comfyui-charlierz] Prompt category {category_id} source missing: {source}")
+                normalized_sources.append(source)
+            else:
+                raise ValueError(f"Category {category_id} has unknown source: {source}")
+
+        seen_ids.add(category_id)
+        categories.append(PromptCategory(category_id, tuple(normalized_sources)))
+
+    return tuple(categories)
+
+
+def prompt_category_ids() -> tuple[str, ...]:
+    return tuple(category.id for category in read_prompt_categories())
+
+
+def prompt_category_source_map() -> dict[str, PromptCategory]:
+    return {category.id: category for category in read_prompt_categories()}
+
+
+def tag_pool_category_map() -> dict[str, str]:
+    mapping: dict[str, str] = {}
+    for category in read_prompt_categories():
+        for pool in category.tag_pool_sources:
+            mapping[pool] = category.id
+    return mapping
+
+
+def prompt_categories_json() -> dict[str, Any]:
+    return {"categories": [{"id": category.id, "sources": list(category.sources)} for category in read_prompt_categories()]}
+
+
+def clear_prompt_category_cache() -> None:
+    read_prompt_categories.cache_clear()
 
 
 def normalize_tag(tag: str) -> str:

@@ -1,5 +1,4 @@
 import {
-  CATEGORY_INPUTS,
   loadCharacterTags,
   loadRelatedMethods,
   loadRelatedTags,
@@ -18,23 +17,28 @@ const MAX_AUTOCOMPLETE_RESULTS = 80;
 const MAX_RELATED_RESULTS = 80;
 const RELATED_METHOD_STORAGE_KEY = "charlierz.promptHelper.relatedMethod";
 const DEFAULT_RELATED_METHOD = "jaccard";
-const CATEGORY_DISPLAY_NAMES = {
-  style_quality: "Style / Quality",
-  themes_roles: "Themes / Roles",
-  appearance_anatomy: "Appearance / Anatomy",
-  clothing_accessories: "Clothing / Accessories",
-  actions_poses: "Actions / Poses",
-  expressions: "Expressions",
-  scene_background: "Scene / Background",
-};
-const CHARACTER_POPUP_CATEGORY_ORDER = [
-  "appearance_anatomy",
-  "clothing_accessories",
-  ...CATEGORY_INPUTS.filter(
-    (category) =>
-      !["appearance_anatomy", "clothing_accessories"].includes(category),
-  ),
-];
+let categoryDisplayNames = new Map();
+let characterPopupCategoryOrder = [];
+
+function displayCategoryName(category) {
+  return (
+    categoryDisplayNames.get(category) ??
+    category?.replaceAll("_", " ") ??
+    "tag"
+  );
+}
+
+function formatRelatedTitle(tag, clickedCategory, actualCategories) {
+  const categories = actualCategories?.length
+    ? actualCategories.map(displayCategoryName).join(", ")
+    : "uncategorized";
+  const clicked = displayCategoryName(clickedCategory);
+  const mismatch =
+    clickedCategory && !actualCategories?.includes(clickedCategory)
+      ? ` (clicked in ${clicked})`
+      : "";
+  return `Related to ${tag} · ${categories}${mismatch}`;
+}
 
 function openDanbooruWiki(tag) {
   window.open(
@@ -65,7 +69,7 @@ function formatCount(count) {
 function getCatalogBadge(item) {
   if (typeof item === "string") return "tag";
   if (!item.type || item.type === "tag") {
-    return CATEGORY_DISPLAY_NAMES[item.category] ?? item.category?.replaceAll("_", " ") ?? "tag";
+    return displayCategoryName(item.category);
   }
   if (item.type === "wildcard") return "wildcard";
   return item.type;
@@ -73,7 +77,9 @@ function getCatalogBadge(item) {
 
 function appendTags(textarea, tags) {
   const existingTags = new Set(getExistingTags(textarea));
-  const tagsToInsert = tags.filter((tag) => !existingTags.has(normalizeTag(tag)));
+  const tagsToInsert = tags.filter(
+    (tag) => !existingTags.has(normalizeTag(tag)),
+  );
   if (!tagsToInsert.length) return;
 
   const trimmedValue = textarea.value.trimEnd();
@@ -125,7 +131,9 @@ class CharacterTagsPopup {
       if (tagItem) {
         event.preventDefault();
         event.stopPropagation();
-        this.onAdd?.(tagItem.dataset.characterCategory, [tagItem.dataset.characterTag]);
+        this.onAdd?.(tagItem.dataset.characterCategory, [
+          tagItem.dataset.characterTag,
+        ]);
         tagItem.classList.add("already-used");
         return;
       }
@@ -140,7 +148,9 @@ class CharacterTagsPopup {
     this.onAdd = onAdd;
     this.currentCategories = characterData.categories ?? {};
     this.title.innerHTML = "";
-    this.title.appendChild(document.createTextNode(`Character tags: ${characterData.character}`));
+    this.title.appendChild(
+      document.createTextNode(`Character tags: ${characterData.character}`),
+    );
 
     const danbooruLink = document.createElement("span");
     danbooruLink.className = "charlierz-danbooru-link header-link";
@@ -150,7 +160,7 @@ class CharacterTagsPopup {
     this.title.appendChild(danbooruLink);
 
     this.content.innerHTML = "";
-    for (const category of CHARACTER_POPUP_CATEGORY_ORDER) {
+    for (const category of characterPopupCategoryOrder) {
       const tags = characterData.categories?.[category] ?? [];
       const textarea = nodeTextareas?.get(category);
       if (!tags.length || !textarea) continue;
@@ -160,7 +170,7 @@ class CharacterTagsPopup {
 
       const groupHeader = document.createElement("div");
       groupHeader.className = "charlierz-character-tags-group-header";
-      groupHeader.textContent = CATEGORY_DISPLAY_NAMES[category] ?? category;
+      groupHeader.textContent = displayCategoryName(category);
 
       const addButton = document.createElement("button");
       addButton.type = "button";
@@ -175,7 +185,8 @@ class CharacterTagsPopup {
         item.className = "charlierz-tag-popup-item";
         item.dataset.characterCategory = category;
         item.dataset.characterTag = tag;
-        if (existingSet.has(normalizeTag(tag))) item.classList.add("already-used");
+        if (existingSet.has(normalizeTag(tag)))
+          item.classList.add("already-used");
 
         const tagName = document.createElement("span");
         tagName.className = "charlierz-tag-name";
@@ -256,7 +267,6 @@ class TagPopup {
       event.stopPropagation();
       this.onSelect?.(this.items[Number(item.dataset.index)]);
     });
-
   }
 
   isVisible() {
@@ -357,7 +367,8 @@ class TagPopup {
   #highlightSelected() {
     [...this.list.children].forEach((item, index) => {
       item.classList.toggle("selected", index === this.selectedIndex);
-      if (index === this.selectedIndex) item.scrollIntoView({ block: "nearest" });
+      if (index === this.selectedIndex)
+        item.scrollIntoView({ block: "nearest" });
     });
   }
 }
@@ -378,12 +389,30 @@ export class PromptHelperAutocomplete {
     this.attachedTextareas = new WeakSet();
     this.relatedMethods = [];
     this.relatedMethod =
-      localStorage.getItem(RELATED_METHOD_STORAGE_KEY) ?? DEFAULT_RELATED_METHOD;
+      localStorage.getItem(RELATED_METHOD_STORAGE_KEY) ??
+      DEFAULT_RELATED_METHOD;
     this.currentRelatedRequest = null;
     this.autocompleteRequestId = 0;
     this.#initializeRelatedMethodSelector();
-    document.addEventListener("keydown", (event) => this.#handleDocumentKeyDown(event));
-    document.addEventListener("pointerdown", (event) => this.#handleDocumentPointerDown(event), true);
+    document.addEventListener("keydown", (event) =>
+      this.#handleDocumentKeyDown(event),
+    );
+    document.addEventListener(
+      "pointerdown",
+      (event) => this.#handleDocumentPointerDown(event),
+      true,
+    );
+  }
+
+  setPromptCategories(categories) {
+    const categoryIds = categories.map((category) => category.id);
+    categoryDisplayNames = new Map(
+      categoryIds.map((id) => [id, id.replaceAll("_", " ")]),
+    );
+    characterPopupCategoryOrder = [
+      ...categoryIds.filter((id) => ["body", "clothes"].includes(id)),
+      ...categoryIds.filter((id) => !["body", "clothes"].includes(id)),
+    ];
   }
 
   #hideAllPopups() {
@@ -432,7 +461,9 @@ export class PromptHelperAutocomplete {
       if (!this.relatedMethods.length) return;
 
       if (!this.relatedMethods.includes(this.relatedMethod)) {
-        this.relatedMethod = this.relatedMethods.includes(DEFAULT_RELATED_METHOD)
+        this.relatedMethod = this.relatedMethods.includes(
+          DEFAULT_RELATED_METHOD,
+        )
           ? DEFAULT_RELATED_METHOD
           : this.relatedMethods[0];
         localStorage.setItem(RELATED_METHOD_STORAGE_KEY, this.relatedMethod);
@@ -462,7 +493,10 @@ export class PromptHelperAutocomplete {
 
       this.relatedPopup.setHeaderControl(select);
     } catch (error) {
-      console.error("[PromptHelper] Failed to initialize related tag methods", error);
+      console.error(
+        "[PromptHelper] Failed to initialize related tag methods",
+        error,
+      );
     }
   }
 
@@ -492,7 +526,8 @@ export class PromptHelperAutocomplete {
       searchTypes,
     });
     if (node && categoryName) {
-      if (!this.nodeTextareas.has(node)) this.nodeTextareas.set(node, new Map());
+      if (!this.nodeTextareas.has(node))
+        this.nodeTextareas.set(node, new Map());
       this.nodeTextareas.get(node).set(categoryName, textarea);
     }
     this.attachedTextareas.add(textarea);
@@ -511,7 +546,8 @@ export class PromptHelperAutocomplete {
 
   async #handleKeyUp(event) {
     if (event.ctrlKey || event.metaKey || event.altKey) return;
-    if (event.key.length > 1 && !["Backspace", "Delete"].includes(event.key)) return;
+    if (event.key.length > 1 && !["Backspace", "Delete"].includes(event.key))
+      return;
 
     const textarea = event.target;
     const config = this.textareaConfig.get(textarea);
@@ -609,7 +645,9 @@ export class PromptHelperAutocomplete {
       return;
     }
 
-    if (config.relatedCategory === "themes_roles") {
+    if (
+      config.prioritySources?.some((source) => source.source === "characters")
+    ) {
       const characterTags = await loadCharacterTags(tag);
       if (characterTags) {
         this.autocompletePopup.hide();
@@ -618,23 +656,35 @@ export class PromptHelperAutocomplete {
           textarea,
           characterTags,
           this.nodeTextareas.get(config.node),
-          (category, tags) => this.#insertCharacterTags(config.node, category, tags),
+          (category, tags) =>
+            this.#insertCharacterTags(config.node, category, tags),
         );
         return;
       }
     }
 
     this.characterTagsPopup.hide();
-    await this.#showRelatedTags({ textarea, category: config.relatedCategory, tag });
+    await this.#showRelatedTags({
+      node: config.node,
+      textarea,
+      category: config.relatedCategory,
+      tag,
+    });
   }
 
   async #showRelatedTags(request) {
     this.currentRelatedRequest = request;
-    const { textarea, category, tag } = request;
+    const { node, textarea, category, tag } = request;
 
-    const relatedTags = (
-      await loadRelatedTags(this.relatedMethod, category, tag)
-    ).slice(0, MAX_RELATED_RESULTS);
+    const relatedDetail = await loadRelatedTags(
+      this.relatedMethod,
+      category,
+      tag,
+    );
+    const relatedTags = (relatedDetail.related ?? []).slice(
+      0,
+      MAX_RELATED_RESULTS,
+    );
     if (!relatedTags.length) {
       this.relatedPopup.hide();
       return;
@@ -644,10 +694,10 @@ export class PromptHelperAutocomplete {
     this.characterTagsPopup.hide();
     this.relatedPopup.show(
       textarea,
-      `Related to ${tag}`,
+      formatRelatedTitle(tag, category, relatedDetail.categories ?? []),
       relatedTags,
       getExistingTags(textarea),
-      (relatedTag) => this.#insertRelatedTag(textarea, relatedTag),
+      (relatedTag) => this.#insertRelatedTag(node, textarea, relatedTag),
       tag,
     );
   }
@@ -678,18 +728,35 @@ export class PromptHelperAutocomplete {
     if (!value) return;
 
     const suffix = textarea.value[range.end] !== "," ? ", " : "";
-    insertText(textarea, range.start, textarea.selectionStart, `${value}${suffix}`);
+    insertText(
+      textarea,
+      range.start,
+      textarea.selectionStart,
+      `${value}${suffix}`,
+    );
     this.autocompletePopup.hide();
   }
 
-  #insertRelatedTag(textarea, tag) {
-    const range = getCurrentTagRange(textarea.value, textarea.selectionStart);
-    const insertAt = range?.end ?? textarea.selectionStart;
-    const prefix = textarea.value.slice(0, insertAt).trimEnd().endsWith(",")
-      ? " "
-      : ", ";
+  #insertRelatedTag(node, fallbackTextarea, tagItem) {
+    const tag = getTagValue(tagItem);
+    if (!tag) return;
 
-    insertText(textarea, insertAt, insertAt, `${prefix}${tag}`);
+    const nodeTextareas = this.nodeTextareas.get(node);
+    const targetCategory = tagItem?.categories?.find((category) =>
+      nodeTextareas?.has(category),
+    );
+    if (targetCategory) {
+      appendTags(nodeTextareas.get(targetCategory), [tag]);
+    } else {
+      const textarea = fallbackTextarea;
+      const range = getCurrentTagRange(textarea.value, textarea.selectionStart);
+      const insertAt = range?.end ?? textarea.selectionStart;
+      const prefix = textarea.value.slice(0, insertAt).trimEnd().endsWith(",")
+        ? " "
+        : ", ";
+
+      insertText(textarea, insertAt, insertAt, `${prefix}${tag}`);
+    }
     this.currentRelatedRequest = null;
     this.relatedPopup.hide();
   }
@@ -699,7 +766,8 @@ export class PromptHelperAutocomplete {
     const textarea = nodeTextareas?.get(category);
     if (!textarea) return;
 
-    const characterTags = tags ?? this.characterTagsPopup.currentCategories?.[category] ?? [];
+    const characterTags =
+      tags ?? this.characterTagsPopup.currentCategories?.[category] ?? [];
     appendTags(textarea, characterTags);
   }
 }

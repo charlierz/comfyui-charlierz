@@ -237,8 +237,8 @@ class PromptCatalogSearchTests(unittest.TestCase):
         tags = [
             TagRecord(label="hatsune miku", normalized="hatsune_miku", category="characters", rank=0),
             TagRecord(label="miku symphony", normalized="miku_symphony", category="copyrights", rank=1),
-            TagRecord(label="miku pose", normalized="miku_pose", category="actions_poses", rank=2),
-            TagRecord(label="miku costume", normalized="miku_costume", category="themes_roles", rank=3),
+            TagRecord(label="miku pose", normalized="miku_pose", category="pose", rank=2),
+            TagRecord(label="miku costume", normalized="miku_costume", category="theme", rank=3),
         ]
         with patch.object(prompt_catalog, "read_tag_records", return_value=tags), patch.object(
             prompt_catalog, "scan_wildcards", return_value=([], [])
@@ -246,7 +246,7 @@ class PromptCatalogSearchTests(unittest.TestCase):
             results = prompt_catalog.search_catalog(
                 "miku",
                 types={"tag"},
-                category="themes_roles",
+                category="theme",
             )["results"]
 
         priority_by_label = {result["label"]: result["priorityClass"] for result in results}

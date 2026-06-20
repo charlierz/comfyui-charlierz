@@ -1,0 +1,11 @@
+{
+  "categories": [
+    {"id": "style", "sources": ["tag_pools/style"]},
+    {"id": "theme", "sources": ["tag_entities/characters", "tag_entities/franchises"]},
+    {"id": "body", "sources": ["tag_pools/body"]},
+    {"id": "clothes", "sources": ["tag_pools/clothes", "tag_pools/visual"]},
+    {"id": "pose", "sources": ["tag_pools/pose"]},
+    {"id": "face", "sources": ["tag_pools/face"]},
+    {"id": "scene", "sources": ["tag_pools/scene", "tag_pools/camera"]}
+  ]
+}

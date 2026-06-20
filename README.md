@@ -14,9 +14,10 @@ Personal ComfyUI custom nodes and browser extensions for image-prompt authoring,
 
 Adds a structured prompt node and frontend autocomplete for Danbooru-style tags. This node is intentionally Danbooru-focused: its bundled data, related-tag lookup, character-tag helper, and wiki links are built around Danbooru tag conventions.
 
-- `Prompt Helper` combines prompt sections into:
+- `Prompt Helper` combines configured prompt sections into:
   - `prompt`: plain text sections joined with blank lines
   - `structured_prompt`: JSON object keyed by prompt category
+- Prompt Helper categories, order, and autocomplete sources are configured in `data/prompt_categories.json`.
 - `Prompt Helper Fill Request` builds an LLM instruction for filling selected prompt categories.
 - `Prompt Helper Fill Apply` merges an LLM JSON response back into the structured prompt.
 - Browser extension behavior:
@@ -26,7 +27,7 @@ Adds a structured prompt node and frontend autocomplete for Danbooru-style tags.
   - character-tag popups for known characters
   - Danbooru wiki quick links
 
-The frontend extension wraps ComfyUI's `ComfyWidgets.STRING` factory so it can attach autocomplete to the actual textarea/input elements as ComfyUI creates them. `Prompt Helper` category fields get category-aware autocomplete and related-tag behavior; other editable string widgets get general Danbooru tag autocomplete.
+The frontend extension wraps ComfyUI's `ComfyWidgets.STRING` factory so it can attach autocomplete to the actual textarea/input elements as ComfyUI creates them. `Prompt Helper` fields from `data/prompt_categories.json` get category-aware autocomplete and related-tag behavior; other editable string widgets get general Danbooru tag autocomplete.
 
 ### Wildcard Processor
 

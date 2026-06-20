@@ -3,8 +3,8 @@ import { api } from "/scripts/api.js";
 import { ComfyWidgets } from "/scripts/widgets.js";
 import { PromptHelperAutocomplete } from "./autocomplete.js";
 import {
-  CATEGORY_INPUTS,
   deletePrompt,
+  loadPromptCategories,
   loadPromptDetail,
   loadPrompts,
   loadWildcardDetail,
@@ -16,6 +16,9 @@ import {
 const extensionId = "charlierz.PromptHelperAutocomplete";
 const autocomplete = new PromptHelperAutocomplete();
 const wildcardPreviewTextareas = new WeakSet();
+let promptCategories = [];
+let promptCategoryIds = new Set();
+let promptCategorySourceMap = new Map();
 
 function loadCss() {
   const href = new URL("../css/prompt-helper.css", import.meta.url).href;
@@ -29,8 +32,12 @@ function loadCss() {
 
 function isPromptHelperWidget(node, inputName) {
   return (
-    node?.comfyClass === "PromptHelper" && CATEGORY_INPUTS.includes(inputName)
+    node?.comfyClass === "PromptHelper" && promptCategoryIds.has(inputName)
   );
+}
+
+function hasPromptCategorySource(inputName, source) {
+  return promptCategorySourceMap.get(inputName)?.includes(source) ?? false;
 }
 
 function isWildcardTemplateWidget(node, inputName) {
@@ -1178,8 +1185,25 @@ app.registerExtension({
     };
   },
 
-  setup() {
+  async setup() {
     loadCss();
+
+    try {
+      const config = await loadPromptCategories();
+      promptCategories = config.categories ?? [];
+      promptCategoryIds = new Set(
+        promptCategories.map((category) => category.id),
+      );
+      promptCategorySourceMap = new Map(
+        promptCategories.map((category) => [
+          category.id,
+          category.sources ?? [],
+        ]),
+      );
+      autocomplete.setPromptCategories(promptCategories);
+    } catch (error) {
+      console.error("[PromptHelper] Failed to load prompt categories", error);
+    }
 
     const originalStringWidget = ComfyWidgets.STRING;
     ComfyWidgets.STRING = function (node, inputName, inputData, appInstance) {
@@ -1192,11 +1216,17 @@ app.registerExtension({
         const prioritySources = [
           { source: inputName, className: "category-priority-match" },
         ];
-        if (inputName === "themes_roles") {
-          prioritySources.unshift(
-            { source: "characters", className: "character-priority-match" },
-            { source: "copyrights", className: "copyright-priority-match" },
-          );
+        if (hasPromptCategorySource(inputName, "tag_entities/characters")) {
+          prioritySources.unshift({
+            source: "characters",
+            className: "character-priority-match",
+          });
+        }
+        if (hasPromptCategorySource(inputName, "tag_entities/franchises")) {
+          prioritySources.unshift({
+            source: "copyrights",
+            className: "copyright-priority-match",
+          });
         }
 
         autocomplete.attach(element, "general", {
