@@ -465,7 +465,7 @@ async function previewWildcardProcessor(node, { reroll = false } = {}) {
     body: JSON.stringify({
       text: getWidgetValue(node, "wildcard_text"),
       seed: getWidgetValue(node, "seed") || 0,
-      weightMode: getWidgetValue(node, "weight_mode") || "count",
+      weightMode: getWidgetValue(node, "weight_mode") || "sqrt",
     }),
   });
   const result = await response.json();
@@ -894,7 +894,7 @@ class WildcardBrowser {
         body: JSON.stringify({
           text: this.promptEditor.value,
           seed: Math.floor(Math.random() * 0xffffffff),
-          weightMode: getWidgetValue(this.node, "weight_mode") || "count",
+          weightMode: getWidgetValue(this.node, "weight_mode") || "sqrt",
         }),
       });
       const result = await response.json();
@@ -1242,6 +1242,27 @@ class WildcardBrowser {
 
 const wildcardBrowser = new WildcardBrowser();
 
+function useLastQueuedWildcardSeed(node) {
+  const lastSeed = node.lastWildcardSeed;
+  if (!Number.isFinite(Number(lastSeed))) {
+    alert("No queued wildcard seed recorded yet. Run the node once first.");
+    return;
+  }
+  setWidgetValue(node, "seed", Number(lastSeed));
+  setWidgetValue(node, "control_after_generate", "fixed");
+}
+
+function rememberWildcardSeedOnExecuted(nodeType) {
+  const originalOnExecuted = nodeType.prototype.onExecuted;
+  nodeType.prototype.onExecuted = function (message) {
+    originalOnExecuted?.apply(this, arguments);
+    const lastSeed = message?.last_seed?.[0];
+    if (Number.isFinite(Number(lastSeed))) {
+      this.lastWildcardSeed = Number(lastSeed);
+    }
+  };
+}
+
 async function unloadLlamaCppModel(node) {
   const serverUrl =
     getWidgetValue(node, "server_url") || "http://127.0.0.1:8080";
@@ -1298,12 +1319,40 @@ app.registerExtension({
       return;
     }
 
+    if (nodeData.name === "PromptFreeze") {
+      const originalOnExecuted = nodeType.prototype.onExecuted;
+      nodeType.prototype.onExecuted = function (message) {
+        originalOnExecuted?.apply(this, arguments);
+        const captured = message?.captured_text?.[0];
+        if (typeof captured === "string") {
+          setWidgetValue(this, "frozen_text", captured);
+        }
+      };
+      return;
+    }
+
+    if (nodeData.name === "WildcardExpander") {
+      rememberWildcardSeedOnExecuted(nodeType);
+      const originalOnNodeCreated = nodeType.prototype.onNodeCreated;
+      nodeType.prototype.onNodeCreated = function () {
+        originalOnNodeCreated?.apply(this, arguments);
+        this.addWidget("button", "Use Last Queued Seed", null, () => {
+          useLastQueuedWildcardSeed(this);
+        });
+      };
+      return;
+    }
+
     if (nodeData.name === "WildcardProcessor") {
+      rememberWildcardSeedOnExecuted(nodeType);
       const originalOnNodeCreated = nodeType.prototype.onNodeCreated;
       nodeType.prototype.onNodeCreated = function () {
         originalOnNodeCreated?.apply(this, arguments);
         this.addWidget("button", "Prompt Catalog", null, () => {
           wildcardBrowser.show(this);
+        });
+        this.addWidget("button", "Use Last Queued Seed", null, () => {
+          useLastQueuedWildcardSeed(this);
         });
         this.addWidget("button", "Preview / Reroll", null, async () => {
           try {
@@ -1394,6 +1443,8 @@ app.registerExtension({
           prioritySources,
           node,
           categoryName: inputName,
+          searchContext: "wildcard",
+          searchTypes: ["wildcard", "tag"],
         });
         attachWildcardProcessorPreview(element);
       } else if (isWildcardTemplateWidget(node, inputName)) {

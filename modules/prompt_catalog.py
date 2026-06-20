@@ -646,6 +646,47 @@ def expand_wildcards(
     return (_unescape(result), diagnostics.messages)
 
 
+def expand_wildcards_preserving_json(
+    template_text: str,
+    *,
+    seed: int = 0,
+    max_depth: int = MAX_EXPANSION_DEPTH,
+    weight_mode: WeightMode = "count",
+) -> tuple[str, list[str]]:
+    rng = random.Random(seed)
+    records, scan_diagnostics = wildcard_map()
+    diagnostics = ExpansionDiagnostics(scan_diagnostics.copy())
+
+    try:
+        parsed = json.loads(template_text)
+    except json.JSONDecodeError:
+        result = _expand_text(template_text, records, rng, diagnostics, [], max_depth, weight_mode)
+        return (_unescape(result), diagnostics.messages)
+
+    expanded = _expand_json_value(parsed, records, rng, diagnostics, max_depth, weight_mode)
+    return (json.dumps(expanded, ensure_ascii=False, indent=2), diagnostics.messages)
+
+
+def _expand_json_value(
+    value: Any,
+    records: dict[str, WildcardRecord],
+    rng: random.Random,
+    diagnostics: ExpansionDiagnostics,
+    max_depth: int,
+    weight_mode: WeightMode,
+) -> Any:
+    if isinstance(value, str):
+        return _unescape(_expand_text(value, records, rng, diagnostics, [], max_depth, weight_mode))
+    if isinstance(value, list):
+        return [_expand_json_value(item, records, rng, diagnostics, max_depth, weight_mode) for item in value]
+    if isinstance(value, dict):
+        return {
+            key: _expand_json_value(item, records, rng, diagnostics, max_depth, weight_mode)
+            for key, item in value.items()
+        }
+    return value
+
+
 def _normalize_search_query(query: str) -> str:
     query = query.strip()
     if query.startswith("__"):

@@ -159,7 +159,8 @@ class WildcardProcessorNodeTests(unittest.TestCase):
     def test_node_generates_when_not_frozen(self):
         result = WildcardProcessor().process("{red|blue}", "previous preview", False, 1)
 
-        self.assertEqual(result, ("red",))
+        self.assertEqual(result["result"], ("red",))
+        self.assertEqual(result["ui"], {"last_seed": [1]})
 
 
 class PromptCatalogSearchTests(unittest.TestCase):

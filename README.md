@@ -39,7 +39,7 @@ Inputs:
 - `preview_text`: latest preview text; when frozen, this is the final output text.
 - `frozen`: when off, expands `wildcard_text`; when on, outputs `preview_text` exactly.
 - `seed`: deterministic random seed for generation.
-- `weight_mode`: tag-pool sampling weight transform: `count`, `sqrt`, `log`, or `random`.
+- `weight_mode`: tag-pool sampling weight transform: `sqrt` (default), `count`, `log`, or `random`.
 
 Output:
 

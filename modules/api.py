@@ -444,9 +444,9 @@ async def post_prompt_catalog_preview(request):
         seed = int(payload.get("seed", 0))
     except (TypeError, ValueError):
         seed = 0
-    weight_mode = str(payload.get("weightMode", "count"))
+    weight_mode = str(payload.get("weightMode", "sqrt"))
     if weight_mode not in WEIGHT_MODES:
-        weight_mode = "count"
+        weight_mode = "sqrt"
 
     processed_text, diagnostics = expand_wildcards(text, seed=seed, weight_mode=weight_mode)  # type: ignore[arg-type]
     return web.json_response({"processedText": processed_text, "diagnostics": diagnostics})
