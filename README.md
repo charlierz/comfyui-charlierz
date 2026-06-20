@@ -21,43 +21,57 @@ Adds a structured prompt node and frontend autocomplete for Danbooru-style tags.
 - `Prompt Helper Fill Request` builds an LLM instruction for filling selected prompt categories.
 - `Prompt Helper Fill Apply` merges an LLM JSON response back into the structured prompt.
 - Browser extension behavior:
-  - autocomplete in text inputs using curated/generated tag data
+  - autocomplete in text inputs using curated/generated tag and wildcard data
   - category-prioritized suggestions inside `Prompt Helper`
-  - related-tag popups from generated relationship TSVs
+  - related-tag popups from generated relationship TSVs, with category/mismatch hints
   - character-tag popups for known characters
   - Danbooru wiki quick links
+  - `Prompt Catalog` access from Prompt Helper for category-aware tag/wildcard insertion
 
-The frontend extension wraps ComfyUI's `ComfyWidgets.STRING` factory so it can attach autocomplete to the actual textarea/input elements as ComfyUI creates them. `Prompt Helper` fields from `data/prompt_categories.json` get category-aware autocomplete and related-tag behavior; other editable string widgets get general Danbooru tag autocomplete.
+The frontend extension wraps ComfyUI's `ComfyWidgets.STRING` factory so it can attach autocomplete to the actual textarea/input elements as ComfyUI creates them. `Prompt Helper` fields from `data/prompt_categories.json` get category-aware autocomplete, wildcard search, wildcard reference previews, related-tag behavior, and Prompt Catalog insertion; other editable string widgets get general Danbooru tag autocomplete.
 
-### Wildcard Processor
+Prompt Catalog insertions in `Prompt Helper` route known tags/wildcards to their configured category textarea and fall back to the focused textarea when unknown. Saved `.txt` prompts normally insert as plain text into the focused category; the Prompts tab has a `Decompose into categories` toggle that splits comma/newline-delimited known tags and wildcards into matching category fields while skipping entries already present.
 
-`Wildcard Processor` expands curated wildcard references into prompt text. It is independent of Impact Pack and uses a small documented syntax inspired by Impact/Dynamic Prompts rather than exact third-party compatibility.
+### Wildcards, expansion, and freezing
 
-Inputs:
+Wildcard nodes expand curated wildcard references into prompt text. They are independent of Impact Pack and use a small documented syntax inspired by Impact/Dynamic Prompts rather than exact third-party compatibility.
+
+`Wildcard Expander` is the lean expansion node:
+
+- `wildcard_text`: prompt template containing wildcard/variant syntax. If this input is valid JSON, string values are expanded and JSON structure is preserved.
+- `weight_mode`: tag-pool sampling weight transform: `sqrt` (default), `count`, `log`, or `random`.
+- `seed`: deterministic random seed for generation, with ComfyUI `control_after_generate` support.
+- output `processed_text`: expanded text or expanded JSON text.
+
+`Prompt Freeze` is a generic text freeze node:
+
+- `live_text`: connected live text input
+- `frozen_text`: last captured live text
+- `frozen`: when off, outputs `live_text` and updates `frozen_text`; when on, outputs `frozen_text` without updating it
+
+Typical structured wildcard workflow:
+
+```text
+Prompt Helper.prompt or structured_prompt
+  -> Wildcard Expander.processed_text
+  -> Prompt Freeze.text
+  -> sampler positive prompt
+```
+
+`Wildcard Processor` is the older all-in-one node that keeps preview/freeze UI inline:
 
 - `wildcard_text`: prompt template containing wildcard/variant syntax.
 - `preview_text`: latest preview text; when frozen, this is the final output text.
+- `weight_mode`: `sqrt` (default), `count`, `log`, or `random`.
 - `frozen`: when off, expands `wildcard_text`; when on, outputs `preview_text` exactly.
-- `seed`: deterministic random seed for generation.
-- `weight_mode`: tag-pool sampling weight transform: `sqrt` (default), `count`, `log`, or `random`.
+- `seed`: deterministic random seed for generation, with ComfyUI `control_after_generate` support.
+- output `processed_text`: generated or frozen prompt text.
 
-Output:
+Frontend buttons on wildcard nodes:
 
-- `processed_text`: generated or frozen prompt text.
-
-Frontend buttons:
-
-- `Prompt Catalog`: opens a catalog dialog with:
-  - `Wildcards`: a nested wildcard tree plus search/preview/insert browser for wildcards and tags. Selecting a wildcard shows its tags; click a tag to insert it as prompt text, or use `Insert` to insert the selected wildcard reference/result. Wildcard/tag insertions are comma-separated from existing `wildcard_text`.
-  - `Prompts`: a prompt browser/editor for saved prompt text snippets. Prompts can contain tags, variants, and wildcard references. Prompt insertion copies the prompt text into `wildcard_text` as a block with blank-line separation.
-- `Preview / Reroll`: randomizes `seed`, expands `wildcard_text` through the backend processor, and writes the result to `preview_text`.
-
-Freeze workflow:
-
-1. Keep `frozen` off while experimenting.
-2. Click `Preview / Reroll` until `preview_text` contains a result to keep.
-3. Turn `frozen` on. The node now outputs `preview_text` exactly.
-4. Turn `frozen` off to resume generation from `wildcard_text`.
+- `Use Last Queued Seed`: sets `seed` to the previously executed seed and sets `control_after_generate` to `fixed`.
+- `Prompt Catalog` on `Wildcard Processor`: opens the catalog dialog.
+- `Preview / Reroll` on `Wildcard Processor`: randomizes `seed`, expands local `wildcard_text`, and writes the result to `preview_text`. This preview uses the node widget text, so prefer `Wildcard Expander` for connected Prompt Helper inputs.
 
 Saved prompts are editable through the Prompt Catalog `Prompts` tab and stored as plain text files under `data/prompts/**/*.txt`. Prompt IDs are path-based, case-insensitive, normalize spaces to underscores, and use the file path without `.txt`:
 
