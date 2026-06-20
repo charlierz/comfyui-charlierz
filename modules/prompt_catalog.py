@@ -20,6 +20,7 @@ from .tag_data import (
 )
 
 WILDCARDS_DIR = os.path.join(DATA_DIR, "wildcards")
+PROMPTS_DIR = os.path.join(DATA_DIR, "prompts")
 CHARACTERS_ENTITIES_FILE = os.path.join(TAG_ENTITIES_DIR, "characters.tsv")
 FRANCHISES_FILE = os.path.join(TAG_ENTITIES_DIR, "franchises.tsv")
 
@@ -52,6 +53,14 @@ class WildcardRecord:
     tags: tuple[WildcardTag, ...]
     metadata: dict[str, Any]
     duplicate: bool = False
+
+
+@dataclass(frozen=True)
+class PromptRecord:
+    id: str
+    path: str
+    label: str
+    text: str
 
 
 @dataclass
@@ -231,6 +240,8 @@ def clear_prompt_catalog_caches() -> None:
     read_tag_records.cache_clear()
     scan_wildcards.cache_clear()
     wildcard_map.cache_clear()
+    scan_prompts.cache_clear()
+    prompt_map.cache_clear()
 
 
 def get_wildcard_detail(wildcard_id: str) -> dict[str, Any]:
@@ -286,6 +297,246 @@ def list_wildcards() -> dict[str, Any]:
             children[parts[-1]] = wildcard_node
 
     return {"tree": _sort_tree(tree), "diagnostics": diagnostics}
+
+
+@lru_cache(maxsize=1)
+def scan_prompts() -> tuple[list[PromptRecord], list[str]]:
+    diagnostics: list[str] = []
+    records: list[PromptRecord] = []
+    seen_paths_by_id: dict[str, str] = {}
+
+    if not os.path.isdir(PROMPTS_DIR):
+        return (records, diagnostics)
+
+    for root, _dirs, files in os.walk(PROMPTS_DIR):
+        for filename in sorted(files):
+            if not filename.endswith(".txt"):
+                continue
+
+            path = os.path.join(root, filename)
+            rel_path = os.path.relpath(path, PROMPTS_DIR)
+            try:
+                prompt_id = normalize_prompt_id(os.path.splitext(rel_path)[0])
+            except ValueError as e:
+                diagnostics.append(f"Invalid prompt path {rel_path}: {e}")
+                continue
+
+            if prompt_id in seen_paths_by_id:
+                diagnostics.append(f"Duplicate prompt id {prompt_id}: {seen_paths_by_id[prompt_id]} wins over {rel_path}")
+                continue
+
+            try:
+                with open(path, "r", encoding="utf-8", errors="replace") as f:
+                    text = f.read()
+            except OSError as e:
+                diagnostics.append(f"Failed to read prompt {rel_path}: {e}")
+                continue
+
+            seen_paths_by_id[prompt_id] = rel_path
+            records.append(
+                PromptRecord(
+                    id=prompt_id,
+                    path=rel_path.replace(os.sep, "/"),
+                    label=display_wildcard_label(prompt_id),
+                    text=text,
+                )
+            )
+
+    return (records, diagnostics)
+
+
+@lru_cache(maxsize=1)
+def prompt_map() -> tuple[dict[str, PromptRecord], list[str]]:
+    records, diagnostics = scan_prompts()
+    return ({record.id: record for record in records}, diagnostics)
+
+
+def list_prompts() -> dict[str, Any]:
+    records, diagnostics = scan_prompts()
+    tree: dict[str, Any] = {"type": "directory", "label": "prompts", "children": {}}
+
+    for record in records:
+        node = tree
+        parts = record.id.split("/")
+        for part in parts[:-1]:
+            children = node.setdefault("children", {})
+            node = children.setdefault(
+                part,
+                {"type": "directory", "label": part.replace("_", " "), "children": {}},
+            )
+
+        children = node.setdefault("children", {})
+        children[parts[-1]] = _prompt_summary(record)
+
+    return {"tree": _sort_tree(tree), "diagnostics": diagnostics}
+
+
+def get_prompt_detail(prompt_id: str) -> dict[str, Any]:
+    records, diagnostics = prompt_map()
+    normalized_id = normalize_prompt_id(prompt_id)
+    record = records.get(normalized_id)
+    if record is None:
+        raise ValueError(f"Unknown prompt: {normalized_id}")
+    return {**_prompt_summary(record), "text": record.text, "diagnostics": diagnostics}
+
+
+def search_prompts(query: str, *, limit: int = 80) -> dict[str, Any]:
+    query = query.strip()
+    normalized_query = normalize_tag(query).lower()
+    text_query = query.lower()
+    if not normalized_query and not text_query:
+        return {"results": [], "diagnostics": []}
+
+    records, diagnostics = scan_prompts()
+    results: list[dict[str, Any]] = []
+    for prompt in records:
+        match_tier = _prompt_match_tier(prompt, normalized_query, text_query)
+        if match_tier is None:
+            continue
+        results.append({**_prompt_summary(prompt), "matchTier": match_tier})
+
+    results.sort(key=lambda item: (int(item.get("matchTier", 99)), str(item.get("id", ""))))
+    return {
+        "results": [{k: v for k, v in item.items() if k != "matchTier"} for item in results[:limit]],
+        "diagnostics": diagnostics,
+    }
+
+
+def save_prompt(prompt_id: str, text: str, *, overwrite: bool = False) -> dict[str, Any]:
+    normalized_id = normalize_prompt_id(prompt_id)
+    normalized_text = _normalize_prompt_text(text)
+    path = _prompt_path(normalized_id)
+    if os.path.exists(path) and not overwrite:
+        raise FileExistsError(f"Prompt already exists: {normalized_id}")
+
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(normalized_text)
+    _clear_prompt_caches()
+    return get_prompt_detail(normalized_id)
+
+
+def rename_prompt(prompt_id: str, new_id: str, *, overwrite: bool = False) -> dict[str, Any]:
+    old_id = normalize_prompt_id(prompt_id)
+    normalized_new_id = normalize_prompt_id(new_id)
+    old_path = _prompt_path(old_id)
+    new_path = _prompt_path(normalized_new_id)
+    if not os.path.exists(old_path):
+        raise ValueError(f"Unknown prompt: {old_id}")
+    if os.path.exists(new_path) and not overwrite:
+        raise FileExistsError(f"Prompt already exists: {normalized_new_id}")
+    if old_path == new_path:
+        return get_prompt_detail(old_id)
+
+    os.makedirs(os.path.dirname(new_path), exist_ok=True)
+    os.replace(old_path, new_path)
+    _remove_empty_parent_dirs(os.path.dirname(old_path))
+    _clear_prompt_caches()
+    return get_prompt_detail(normalized_new_id)
+
+
+def delete_prompt(prompt_id: str) -> dict[str, Any]:
+    normalized_id = normalize_prompt_id(prompt_id)
+    path = _prompt_path(normalized_id)
+    if not os.path.exists(path):
+        raise ValueError(f"Unknown prompt: {normalized_id}")
+    os.remove(path)
+    _remove_empty_parent_dirs(os.path.dirname(path))
+    _clear_prompt_caches()
+    return {"deleted": True, "id": normalized_id}
+
+
+def normalize_prompt_id(value: str) -> str:
+    raw = value.replace(os.sep, "/").replace("\\", "/").strip()
+    if not raw:
+        raise ValueError("Prompt id is empty")
+    if raw.startswith("/") or raw.endswith("/") or "//" in raw:
+        raise ValueError("Prompt id has invalid separators")
+    if any(part.strip() in {"", ".", ".."} for part in raw.split("/")):
+        raise ValueError("Prompt id contains an invalid segment")
+
+    normalized = normalize_wildcard_id(raw)
+    if not re.fullmatch(r"[a-z0-9_-]+(?:/[a-z0-9_-]+)*", normalized):
+        raise ValueError("Prompt id contains unsafe characters")
+    return normalized
+
+
+def _prompt_summary(record: PromptRecord) -> dict[str, Any]:
+    return {
+        "type": "prompt",
+        "id": record.id,
+        "label": record.label,
+        "insertText": record.text,
+        "path": record.path,
+        "preview": _prompt_preview(record.text),
+    }
+
+
+def _prompt_match_tier(prompt: PromptRecord, normalized_query: str, text_query: str) -> int | None:
+    id_text = prompt.id
+    id_space = id_text.replace("/", " ").replace("_", " ").replace("-", " ")
+    label = prompt.label.lower().replace("_", " ").replace("-", " ")
+    text = prompt.text.lower()
+    query_path = ""
+    if text_query and re.fullmatch(r"[a-z0-9_\-/ ]+", text_query):
+        try:
+            query_path = normalize_prompt_id(text_query.replace(" ", "/"))
+        except ValueError:
+            query_path = ""
+    query_variants = [query for query in (query_path, normalized_query) if query]
+
+    if any(id_text == query for query in query_variants):
+        return 0
+    if any(id_text.startswith(f"{query}/") or id_text.startswith(query) for query in query_variants):
+        return 1
+    if any(label.startswith(query.replace("_", " ")) for query in query_variants):
+        return 2
+    if any(query in haystack for query in query_variants for haystack in (id_text, id_space)):
+        return 3
+    if text_query and text_query in text:
+        return 4
+    if normalized_query and normalized_query.replace("_", " ") in text:
+        return 5
+    return None
+
+
+def _prompt_preview(text: str) -> str:
+    first_line = next((line.strip() for line in text.splitlines() if line.strip()), "")
+    if len(first_line) > 160:
+        return f"{first_line[:157]}..."
+    return first_line
+
+
+def _normalize_prompt_text(text: str) -> str:
+    normalized = text.replace("\r\n", "\n").replace("\r", "\n").strip()
+    if not normalized:
+        raise ValueError("Prompt text is empty")
+    return f"{normalized}\n"
+
+
+def _prompt_path(prompt_id: str) -> str:
+    normalized_id = normalize_prompt_id(prompt_id)
+    root = os.path.abspath(PROMPTS_DIR)
+    path = os.path.abspath(os.path.join(root, *normalized_id.split("/"))) + ".txt"
+    if os.path.commonpath([root, path]) != root:
+        raise ValueError("Prompt path escapes prompt directory")
+    return path
+
+
+def _remove_empty_parent_dirs(path: str) -> None:
+    root = os.path.abspath(PROMPTS_DIR)
+    current = os.path.abspath(path)
+    while current.startswith(root) and current != root:
+        try:
+            os.rmdir(current)
+        except OSError:
+            break
+        current = os.path.dirname(current)
+
+
+def _clear_prompt_caches() -> None:
+    scan_prompts.cache_clear()
+    prompt_map.cache_clear()
 
 
 def search_catalog(

@@ -46,7 +46,9 @@ Output:
 
 Frontend buttons:
 
-- `Browse Wildcards`: opens a nested wildcard tree plus search/preview/insert browser for wildcards and tags. Selecting a wildcard shows its tags; click a tag to insert it as prompt text, or use `Insert` to insert the selected wildcard reference/result. Browser insertions are comma-separated from existing `wildcard_text`.
+- `Prompt Catalog`: opens a catalog dialog with:
+  - `Wildcards`: a nested wildcard tree plus search/preview/insert browser for wildcards and tags. Selecting a wildcard shows its tags; click a tag to insert it as prompt text, or use `Insert` to insert the selected wildcard reference/result. Wildcard/tag insertions are comma-separated from existing `wildcard_text`.
+  - `Prompts`: a prompt browser/editor for saved prompt text snippets. Prompts can contain tags, variants, and wildcard references. Prompt insertion copies the prompt text into `wildcard_text` as a block with blank-line separation.
 - `Preview / Reroll`: randomizes `seed`, expands `wildcard_text` through the backend processor, and writes the result to `preview_text`.
 
 Freeze workflow:
@@ -55,6 +57,14 @@ Freeze workflow:
 2. Click `Preview / Reroll` until `preview_text` contains a result to keep.
 3. Turn `frozen` on. The node now outputs `preview_text` exactly.
 4. Turn `frozen` off to resume generation from `wildcard_text`.
+
+Saved prompts are editable through the Prompt Catalog `Prompts` tab and stored as plain text files under `data/prompts/**/*.txt`. Prompt IDs are path-based, case-insensitive, normalize spaces to underscores, and use the file path without `.txt`:
+
+```text
+data/prompts/portraits/soft_lighting.txt -> portraits/soft_lighting
+```
+
+The prompt editor supports tag/wildcard autocomplete, click-to-preview for wildcard references, create/save/save-as/rename/delete actions, `New From Current`, and direct expansion preview. Saved prompts are inserted as text snippets; they are not referenced at processing time.
 
 Wildcard pools are backed by curated tag-pool TSVs under `data/tag_pools/**/*.tsv`. Each pool row is a prompt tag; the optional `count` column powers weighted sampling. Wildcard IDs are path-based, case-insensitive, and normalize spaces to underscores. For example:
 
@@ -78,6 +88,8 @@ __path/**__                # sample recursively from descendant files
 Tags and selected variant options are expanded recursively, so wildcards can contain variants and variants can contain wildcard references. Expansion has cycle and depth protection. Missing, cyclic, empty, or depth-limited wildcards insert visible markers into `processed_text` and log diagnostics.
 
 Escaping uses backslashes for literal syntax characters where needed, such as `\{`, `\}`, `\|`, and `\_`.
+
+Future prompt-catalog enhancements may add prompt-reference syntax in `wildcard_text` and saved-prompt autocomplete results. Both are intentionally out of scope for the current snippet-based prompt workflow.
 
 Curated prompt tag pools live under `data/tag_pools/**/*.tsv`. Each pool uses space-form tags and source counts:
 

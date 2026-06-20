@@ -41,7 +41,9 @@ export async function loadCharacterTags(character) {
     return null;
   }
   if (!response.ok) {
-    throw new Error(`Failed to load character tags for ${character}: ${response.status}`);
+    throw new Error(
+      `Failed to load character tags for ${character}: ${response.status}`,
+    );
   }
 
   const tags = await response.json();
@@ -49,8 +51,101 @@ export async function loadCharacterTags(character) {
   return tags;
 }
 
+export async function loadPrompts() {
+  const response = await fetch("/charlierz-prompt-catalog/prompts", {
+    cache: "no-store",
+  });
+  if (!response.ok) {
+    throw new Error(`Failed to load prompts: ${response.status}`);
+  }
+  return response.json();
+}
+
+export async function loadPromptDetail(id) {
+  const url = new URL(
+    "/charlierz-prompt-catalog/prompt",
+    window.location.origin,
+  );
+  url.searchParams.set("id", id);
+
+  const response = await fetch(url, { cache: "no-store" });
+  if (!response.ok) {
+    throw new Error(`Failed to load prompt ${id}: ${response.status}`);
+  }
+
+  return response.json();
+}
+
+export async function searchPrompts({ query, limit = 80 }) {
+  const url = new URL(
+    "/charlierz-prompt-catalog/prompt-search",
+    window.location.origin,
+  );
+  url.searchParams.set("q", query);
+  url.searchParams.set("limit", `${limit}`);
+
+  const response = await fetch(url, { cache: "no-store" });
+  if (!response.ok) {
+    throw new Error(`Failed to search prompts: ${response.status}`);
+  }
+
+  return response.json();
+}
+
+export async function savePrompt({ id, text, overwrite = false }) {
+  const response = await fetch("/charlierz-prompt-catalog/prompt", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ id, text, overwrite }),
+  });
+  const result = await response.json();
+  if (!response.ok) {
+    const error = new Error(
+      result.error || `Failed to save prompt: ${response.status}`,
+    );
+    error.status = response.status;
+    throw error;
+  }
+  return result;
+}
+
+export async function renamePrompt({ id, newId, overwrite = false }) {
+  const response = await fetch("/charlierz-prompt-catalog/prompt/rename", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ id, newId, overwrite }),
+  });
+  const result = await response.json();
+  if (!response.ok) {
+    const error = new Error(
+      result.error || `Failed to rename prompt: ${response.status}`,
+    );
+    error.status = response.status;
+    throw error;
+  }
+  return result;
+}
+
+export async function deletePrompt(id) {
+  const response = await fetch("/charlierz-prompt-catalog/prompt/delete", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ id }),
+  });
+  const result = await response.json();
+  if (!response.ok) {
+    throw new Error(
+      result.error || `Failed to delete prompt: ${response.status}`,
+    );
+  }
+  return result;
+}
+
 export async function loadWildcardDetail(id) {
-  const url = new URL("/charlierz-prompt-catalog/wildcard", window.location.origin);
+  const url = new URL(
+    "/charlierz-prompt-catalog/wildcard",
+    window.location.origin,
+  );
   url.searchParams.set("id", id);
 
   const response = await fetch(url, { cache: "no-store" });
@@ -61,8 +156,17 @@ export async function loadWildcardDetail(id) {
   return response.json();
 }
 
-export async function searchCatalog({ query, context = "prompt", category = null, types = null, limit = 80 }) {
-  const url = new URL("/charlierz-prompt-catalog/search", window.location.origin);
+export async function searchCatalog({
+  query,
+  context = "prompt",
+  category = null,
+  types = null,
+  limit = 80,
+}) {
+  const url = new URL(
+    "/charlierz-prompt-catalog/search",
+    window.location.origin,
+  );
   url.searchParams.set("q", query);
   url.searchParams.set("context", context);
   url.searchParams.set("limit", `${limit}`);

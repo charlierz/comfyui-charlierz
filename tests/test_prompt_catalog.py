@@ -333,5 +333,86 @@ class PromptCatalogSearchTests(unittest.TestCase):
         self.assertEqual(results[0]["insertText"], "__appearance/hair/color__")
 
 
+
+class PromptCatalogPromptTests(unittest.TestCase):
+    def setUp(self):
+        prompt_catalog.clear_prompt_catalog_caches()
+
+    def tearDown(self):
+        prompt_catalog.clear_prompt_catalog_caches()
+
+    def test_lists_nested_prompt_tree_and_detail(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            self._write(temp_dir, "portraits/soft-lighting.txt", "1girl, __body/hair/color__\n")
+            with patch.object(prompt_catalog, "PROMPTS_DIR", temp_dir):
+                tree = prompt_catalog.list_prompts()["tree"]
+                detail = prompt_catalog.get_prompt_detail("portraits/soft-lighting")
+
+        portraits = tree["children"][0]
+        prompt = portraits["children"][0]
+        self.assertEqual(portraits["label"], "portraits")
+        self.assertEqual(prompt["id"], "portraits/soft-lighting")
+        self.assertEqual(prompt["label"], "soft-lighting")
+        self.assertEqual(detail["insertText"], "1girl, __body/hair/color__\n")
+
+    def test_search_prompts_matches_id_and_text(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            self._write(temp_dir, "portraits/soft-lighting.txt", "cinematic rim light\n")
+            self._write(temp_dir, "scene/night.txt", "moonlit city\n")
+            with patch.object(prompt_catalog, "PROMPTS_DIR", temp_dir):
+                id_results = prompt_catalog.search_prompts("soft lighting")["results"]
+                text_results = prompt_catalog.search_prompts("moonlit")["results"]
+
+        self.assertEqual(id_results[0]["id"], "portraits/soft-lighting")
+        self.assertEqual(text_results[0]["id"], "scene/night")
+
+    def test_save_prompt_normalizes_id_trims_text_and_rejects_empty(self):
+        with tempfile.TemporaryDirectory() as temp_dir, patch.object(prompt_catalog, "PROMPTS_DIR", temp_dir):
+            detail = prompt_catalog.save_prompt("Portraits/Soft Lighting", "\n  1girl  \n", overwrite=False)
+            path = os.path.join(temp_dir, "portraits", "soft_lighting.txt")
+            with open(path, "r", encoding="utf-8") as f:
+                content = f.read()
+
+            with self.assertRaises(ValueError):
+                prompt_catalog.save_prompt("empty", "  \n", overwrite=False)
+
+        self.assertEqual(detail["id"], "portraits/soft_lighting")
+        self.assertEqual(content, "1girl\n")
+
+    def test_save_prompt_requires_overwrite_for_existing_prompt(self):
+        with tempfile.TemporaryDirectory() as temp_dir, patch.object(prompt_catalog, "PROMPTS_DIR", temp_dir):
+            prompt_catalog.save_prompt("portrait", "first", overwrite=False)
+            with self.assertRaises(FileExistsError):
+                prompt_catalog.save_prompt("portrait", "second", overwrite=False)
+            prompt_catalog.save_prompt("portrait", "second", overwrite=True)
+            detail = prompt_catalog.get_prompt_detail("portrait")
+
+        self.assertEqual(detail["text"], "second\n")
+
+    def test_rename_and_delete_prompt_refresh_catalog(self):
+        with tempfile.TemporaryDirectory() as temp_dir, patch.object(prompt_catalog, "PROMPTS_DIR", temp_dir):
+            prompt_catalog.save_prompt("old/name", "text", overwrite=False)
+            renamed = prompt_catalog.rename_prompt("old/name", "new/name", overwrite=False)
+            self.assertEqual(renamed["id"], "new/name")
+            self.assertEqual(prompt_catalog.search_prompts("old")["results"], [])
+            self.assertEqual(prompt_catalog.search_prompts("new")["results"][0]["id"], "new/name")
+            deleted = prompt_catalog.delete_prompt("new/name")
+            self.assertEqual(deleted, {"deleted": True, "id": "new/name"})
+            with self.assertRaises(ValueError):
+                prompt_catalog.get_prompt_detail("new/name")
+
+    def test_rejects_unsafe_prompt_ids(self):
+        for prompt_id in ("../secret", "bad/id!", "", "./bad", "/secret", "bad//id", "bad/"):
+            with self.subTest(prompt_id=prompt_id):
+                with self.assertRaises(ValueError):
+                    prompt_catalog.normalize_prompt_id(prompt_id)
+
+    def _write(self, root: str, rel_path: str, content: str) -> None:
+        path = os.path.join(root, rel_path)
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(content)
+
+
 if __name__ == "__main__":
     unittest.main()

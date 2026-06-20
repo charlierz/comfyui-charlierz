@@ -2,7 +2,16 @@ import { app } from "/scripts/app.js";
 import { api } from "/scripts/api.js";
 import { ComfyWidgets } from "/scripts/widgets.js";
 import { PromptHelperAutocomplete } from "./autocomplete.js";
-import { CATEGORY_INPUTS, loadWildcardDetail } from "./data.js";
+import {
+  CATEGORY_INPUTS,
+  deletePrompt,
+  loadPromptDetail,
+  loadPrompts,
+  loadWildcardDetail,
+  renamePrompt,
+  savePrompt,
+  searchPrompts,
+} from "./data.js";
 
 const extensionId = "charlierz.PromptHelperAutocomplete";
 const autocomplete = new PromptHelperAutocomplete();
@@ -76,6 +85,30 @@ function commaSeparatedInsertion(current, start, end, text) {
   };
 }
 
+function blockInsertion(current, start, end, text) {
+  const before = current.slice(0, start);
+  const after = current.slice(end);
+  const trimmedText = String(text ?? "").trim();
+  const prefix = before.trim()
+    ? before.endsWith("\n\n")
+      ? ""
+      : before.endsWith("\n")
+        ? "\n"
+        : "\n\n"
+    : "";
+  const suffix = after.trim()
+    ? after.startsWith("\n\n")
+      ? ""
+      : after.startsWith("\n")
+        ? "\n"
+        : "\n\n"
+    : "";
+  return {
+    next: `${before}${prefix}${trimmedText}${suffix}${after}`,
+    cursor: before.length + prefix.length + trimmedText.length,
+  };
+}
+
 function flashInserted(button) {
   if (!button) return;
   button.classList.add("charlierz-insert-flash");
@@ -96,19 +129,15 @@ function attachWildcardProcessorPreview(element) {
   });
 }
 
-function insertIntoWidget(node, name, text) {
+function insertIntoWidget(node, name, text, { mode = "comma" } = {}) {
   const widget = getWidget(node, name);
   if (!widget) return false;
 
   const element = widget.element ?? widget.inputEl;
   if (!element || typeof element.selectionStart !== "number") {
     const current = String(widget.value ?? "");
-    const insertion = commaSeparatedInsertion(
-      current,
-      current.length,
-      current.length,
-      text,
-    );
+    const insert = mode === "block" ? blockInsertion : commaSeparatedInsertion;
+    const insertion = insert(current, current.length, current.length, text);
     return setWidgetValue(node, name, insertion.next);
   }
 
@@ -116,7 +145,8 @@ function insertIntoWidget(node, name, text) {
   const start = element.selectionStart;
   const end = element.selectionEnd;
   const current = String(widget.value ?? element.value ?? "");
-  const insertion = commaSeparatedInsertion(current, start, end, text);
+  const insert = mode === "block" ? blockInsertion : commaSeparatedInsertion;
+  const insertion = insert(current, start, end, text);
   setWidgetValue(node, name, insertion.next);
   element.setSelectionRange(insertion.cursor, insertion.cursor);
   return true;
@@ -372,12 +402,29 @@ class WildcardBrowser {
 
     const header = document.createElement("div");
     header.className = "charlierz-wildcard-browser-header";
-    header.textContent = "Wildcard Browser";
+    header.textContent = "Prompt Catalog";
     this.closeButton = document.createElement("button");
     this.closeButton.type = "button";
     this.closeButton.textContent = "×";
     header.appendChild(this.closeButton);
     this.dialog.appendChild(header);
+
+    this.activeTab = "wildcards";
+    this.promptDirty = false;
+    this.promptSelected = null;
+    this.promptLoadedText = "";
+
+    this.tabs = document.createElement("div");
+    this.tabs.className = "charlierz-wildcard-browser-tabs";
+    this.wildcardsTabButton = document.createElement("button");
+    this.wildcardsTabButton.type = "button";
+    this.wildcardsTabButton.textContent = "Wildcards";
+    this.promptsTabButton = document.createElement("button");
+    this.promptsTabButton.type = "button";
+    this.promptsTabButton.textContent = "Prompts";
+    this.tabs.appendChild(this.wildcardsTabButton);
+    this.tabs.appendChild(this.promptsTabButton);
+    this.dialog.appendChild(this.tabs);
 
     const searchBar = document.createElement("div");
     searchBar.className = "charlierz-wildcard-browser-searchbar";
@@ -419,6 +466,41 @@ class WildcardBrowser {
     body.appendChild(this.details);
     this.dialog.appendChild(body);
 
+    this.promptActions = document.createElement("div");
+    this.promptActions.className = "charlierz-prompt-browser-actions";
+    for (const [name, label] of [
+      ["new", "New Prompt"],
+      ["newCurrent", "New From Current"],
+      ["save", "Save"],
+      ["saveAs", "Save As"],
+      ["rename", "Rename"],
+      ["delete", "Delete"],
+      ["insert", "Insert"],
+      ["preview", "Preview / Reroll"],
+    ]) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.dataset.promptAction = name;
+      button.textContent = label;
+      this.promptActions.appendChild(button);
+    }
+    this.promptIdInput = document.createElement("input");
+    this.promptIdInput.className = "charlierz-prompt-id-input";
+    this.promptIdInput.placeholder = "prompt/id";
+    this.promptEditor = document.createElement("textarea");
+    this.promptEditor.className = "charlierz-prompt-editor";
+    this.promptEditor.placeholder =
+      "Write prompt text with tags, {variants}, and __wildcards__...";
+    this.promptPreview = document.createElement("pre");
+    this.promptPreview.className = "charlierz-prompt-preview";
+    this.promptPreview.textContent = "Preview output appears here.";
+    autocomplete.attach(this.promptEditor, "general", {
+      enableRelatedTags: false,
+      searchContext: "wildcard",
+      searchTypes: ["wildcard", "tag"],
+    });
+    attachWildcardProcessorPreview(this.promptEditor);
+
     document.body.appendChild(this.root);
 
     this.closeButton.addEventListener("click", () => this.hide());
@@ -429,6 +511,12 @@ class WildcardBrowser {
       clearTimeout(this.searchTimer);
       this.searchTimer = setTimeout(() => this.runSearch(), 150);
     });
+    this.wildcardsTabButton.addEventListener("click", () =>
+      this.setTab("wildcards"),
+    );
+    this.promptsTabButton.addEventListener("click", () =>
+      this.setTab("prompts"),
+    );
     this.filters.addEventListener("change", () => this.runSearch());
     this.results.addEventListener("mousedown", (event) => {
       const insert = event.target.closest("[data-insert-result]");
@@ -449,6 +537,20 @@ class WildcardBrowser {
       if (!event.target.closest("[data-insert-result]")) return;
       event.preventDefault();
       event.stopPropagation();
+    });
+    this.promptEditor.addEventListener("input", () => {
+      this.promptDirty = this.promptEditor.value !== this.promptLoadedText;
+    });
+    this.promptActions.addEventListener("click", async (event) => {
+      const button = event.target.closest("[data-prompt-action]");
+      if (!button) return;
+      event.preventDefault();
+      try {
+        await this.runPromptAction(button.dataset.promptAction, button);
+      } catch (error) {
+        console.error(error);
+        alert(error.message || String(error));
+      }
     });
     this.details.addEventListener("click", (event) => {
       const selected = event.target.closest("[data-insert-selected]");
@@ -477,12 +579,59 @@ class WildcardBrowser {
   }
 
   hide() {
+    if (!this.canDiscardPromptEdits()) return;
     this.root.style.display = "none";
     this.node = null;
     this.selected = null;
   }
 
+  canDiscardPromptEdits() {
+    return (
+      this.activeTab !== "prompts" ||
+      !this.promptDirty ||
+      confirm("Discard unsaved prompt changes?")
+    );
+  }
+
+  setTab(tab) {
+    if (tab === this.activeTab) return;
+    if (!this.canDiscardPromptEdits()) return;
+    this.activeTab = tab;
+    this.selected = null;
+    this.promptDirty = false;
+    this.promptLoadedText = "";
+    this.promptSelected = null;
+    this.search.value = "";
+    this.updateTabUi();
+    this.loadTree();
+  }
+
+  updateTabUi() {
+    this.wildcardsTabButton.classList.toggle(
+      "active",
+      this.activeTab === "wildcards",
+    );
+    this.promptsTabButton.classList.toggle(
+      "active",
+      this.activeTab === "prompts",
+    );
+    this.filters.style.display =
+      this.activeTab === "wildcards" ? "flex" : "none";
+    this.promptActions.style.display =
+      this.activeTab === "prompts" ? "flex" : "none";
+    this.search.placeholder =
+      this.activeTab === "prompts"
+        ? "Search prompt names or text"
+        : "Search tags or wildcard paths";
+  }
+
   async loadTree() {
+    this.updateTabUi();
+    if (this.activeTab === "prompts") {
+      await this.loadPromptTree();
+      return;
+    }
+
     const response = await api.fetchApi("/charlierz-prompt-catalog/wildcards");
     const result = await response.json();
     if (!response.ok || result.error) {
@@ -499,6 +648,13 @@ class WildcardBrowser {
     const query = this.search.value.trim();
     if (!query) {
       this.loadTree();
+      return;
+    }
+
+    if (this.activeTab === "prompts") {
+      const result = await searchPrompts({ query, limit: 120 });
+      this.items = result.results ?? [];
+      this.renderPromptResults();
       return;
     }
 
@@ -529,6 +685,179 @@ class WildcardBrowser {
 
     this.items = result.results ?? [];
     this.renderGroupedResults();
+  }
+
+  async loadPromptTree() {
+    try {
+      const result = await loadPrompts();
+      this.items = [];
+      this.results.innerHTML = "";
+      this.renderTreeNode(result.tree, this.results, 0);
+      this.renderPromptEditor();
+    } catch (error) {
+      this.results.innerHTML = `<div class='charlierz-wildcard-browser-empty'>${error.message || error}</div>`;
+    }
+  }
+
+  renderPromptResults() {
+    this.results.innerHTML = "";
+    if (!this.items.length) {
+      this.results.innerHTML =
+        "<div class='charlierz-wildcard-browser-empty'>No prompts.</div>";
+      return;
+    }
+    for (const [index, item] of this.items.entries()) {
+      this.renderResultRow(item, index, this.results, { showPath: true });
+    }
+  }
+
+  renderPromptEditor() {
+    this.details.innerHTML = "";
+    const header = document.createElement("div");
+    header.className = "charlierz-wildcard-browser-detail-header";
+    header.appendChild(this.promptIdInput);
+    this.details.appendChild(header);
+    this.details.appendChild(this.promptActions);
+    this.details.appendChild(this.promptEditor);
+    this.details.appendChild(this.promptPreview);
+  }
+
+  async runPromptAction(action, button) {
+    if (action === "new") {
+      if (!this.canDiscardPromptEdits()) return;
+      this.promptSelected = null;
+      this.selected = null;
+      this.promptIdInput.value = "";
+      this.promptEditor.value = "";
+      this.promptLoadedText = "";
+      this.promptDirty = false;
+      this.promptPreview.textContent = "Preview output appears here.";
+      this.promptEditor.focus();
+      return;
+    }
+
+    if (action === "newCurrent") {
+      if (!this.canDiscardPromptEdits()) return;
+      this.promptSelected = null;
+      this.selected = null;
+      this.promptIdInput.value = "";
+      this.promptEditor.value = getWidgetValue(this.node, "wildcard_text");
+      this.promptLoadedText = "";
+      this.promptDirty = true;
+      this.promptEditor.focus();
+      return;
+    }
+
+    if (action === "insert") {
+      if (!this.promptEditor.value.trim())
+        throw new Error("Prompt text is empty");
+      if (
+        insertIntoWidget(this.node, "wildcard_text", this.promptEditor.value, {
+          mode: "block",
+        })
+      )
+        flashInserted(button);
+      return;
+    }
+
+    if (action === "preview") {
+      const response = await api.fetchApi("/charlierz-prompt-catalog/preview", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          text: this.promptEditor.value,
+          seed: Math.floor(Math.random() * 0xffffffff),
+          weightMode: getWidgetValue(this.node, "weight_mode") || "count",
+        }),
+      });
+      const result = await response.json();
+      if (!response.ok || result.error)
+        throw new Error(
+          result.error || `Preview failed with HTTP ${response.status}`,
+        );
+      const diagnostics = result.diagnostics?.length
+        ? `\n\nDiagnostics:\n${result.diagnostics.join("\n")}`
+        : "";
+      this.promptPreview.textContent = `${result.processedText ?? ""}${diagnostics}`;
+      return;
+    }
+
+    if (action === "delete") {
+      const id = this.promptIdInput.value.trim();
+      if (!id) throw new Error("Missing prompt id");
+      if (!confirm(`Delete prompt ${id}?`)) return;
+      await deletePrompt(id);
+      this.promptSelected = null;
+      this.selected = null;
+      this.promptIdInput.value = "";
+      this.promptEditor.value = "";
+      this.promptLoadedText = "";
+      this.promptDirty = false;
+      await this.loadTree();
+      return;
+    }
+
+    if (action === "rename") {
+      const id = this.promptSelected?.id ?? this.promptIdInput.value.trim();
+      if (!id) throw new Error("Missing prompt id");
+      const newId = prompt("New prompt id", id);
+      if (!newId) return;
+      let renamed;
+      try {
+        renamed = await renamePrompt({ id, newId, overwrite: false });
+      } catch (error) {
+        if (
+          error.status !== 409 ||
+          !confirm(`${error.message}\n\nOverwrite existing prompt?`)
+        )
+          throw error;
+        renamed = await renamePrompt({ id, newId, overwrite: true });
+      }
+      await this.loadPromptDetail(renamed.id);
+      await this.loadTree();
+      return;
+    }
+
+    if (action === "save" || action === "saveAs") {
+      let id = this.promptIdInput.value.trim();
+      if (action === "saveAs" || !id) {
+        const entered = prompt("Prompt id", id);
+        if (!entered) return;
+        id = entered;
+      }
+      let saved;
+      try {
+        saved = await savePrompt({
+          id,
+          text: this.promptEditor.value,
+          overwrite: action === "save" && this.promptSelected?.id === id,
+        });
+      } catch (error) {
+        if (
+          error.status !== 409 ||
+          !confirm(`${error.message}\n\nOverwrite existing prompt?`)
+        )
+          throw error;
+        saved = await savePrompt({
+          id,
+          text: this.promptEditor.value,
+          overwrite: true,
+        });
+      }
+      await this.loadPromptDetail(saved.id);
+      await this.loadTree();
+    }
+  }
+
+  async loadPromptDetail(id) {
+    const detail = await loadPromptDetail(id);
+    this.promptSelected = detail;
+    this.promptIdInput.value = detail.id;
+    this.promptEditor.value = detail.text ?? "";
+    this.promptLoadedText = this.promptEditor.value;
+    this.promptDirty = false;
+    this.promptPreview.textContent =
+      detail.preview || "Preview output appears here.";
   }
 
   renderTreeNode(node, parent, depth) {
@@ -636,14 +965,15 @@ class WildcardBrowser {
 
     row.appendChild(content);
 
-    if (item.type === "wildcard") {
+    if (item.type === "wildcard" || item.type === "prompt") {
       const insert = document.createElement("button");
       insert.type = "button";
       insert.className = "charlierz-wildcard-browser-row-insert";
       insert.dataset.insertResult = "true";
       insert.dataset.resultIndex = `${index}`;
-      insert.textContent = "Insert wildcard";
-      insert.title = "Insert wildcard";
+      insert.textContent =
+        item.type === "prompt" ? "Insert prompt" : "Insert wildcard";
+      insert.title = insert.textContent;
       row.appendChild(insert);
     }
 
@@ -652,6 +982,10 @@ class WildcardBrowser {
 
   async select(index) {
     this.selected = this.items[index] ?? null;
+    if (this.activeTab === "prompts" && this.selected?.type === "prompt") {
+      if (!this.canDiscardPromptEdits()) return;
+      await this.loadPromptDetail(this.selected.id);
+    }
     for (const row of this.results.querySelectorAll("[data-result-index]")) {
       row.classList.toggle(
         "selected",
@@ -662,6 +996,11 @@ class WildcardBrowser {
   }
 
   async renderDetails() {
+    if (this.activeTab === "prompts") {
+      this.renderPromptEditor();
+      return;
+    }
+
     this.details.innerHTML = "";
     if (!this.selected) {
       this.details.innerHTML =
@@ -742,6 +1081,7 @@ class WildcardBrowser {
       this.node,
       "wildcard_text",
       item.insertText ?? item.label ?? "",
+      { mode: item.type === "prompt" ? "block" : "comma" },
     );
     if (inserted && close) this.hide();
     return inserted;
@@ -799,7 +1139,7 @@ app.registerExtension({
       const originalOnNodeCreated = nodeType.prototype.onNodeCreated;
       nodeType.prototype.onNodeCreated = function () {
         originalOnNodeCreated?.apply(this, arguments);
-        this.addWidget("button", "Browse Wildcards", null, () => {
+        this.addWidget("button", "Prompt Catalog", null, () => {
           wildcardBrowser.show(this);
         });
         this.addWidget("button", "Preview / Reroll", null, async () => {

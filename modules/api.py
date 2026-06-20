@@ -9,7 +9,19 @@ from aiohttp import web
 from .llama_cpp_client import get_json as llama_get_json
 from .llama_cpp_client import normalize_server_url as normalize_llama_url
 from .llama_cpp_client import post_json as llama_post_json
-from .prompt_catalog import WEIGHT_MODES, expand_wildcards, get_wildcard_detail, list_wildcards, search_catalog
+from .prompt_catalog import (
+    WEIGHT_MODES,
+    delete_prompt,
+    expand_wildcards,
+    get_prompt_detail,
+    get_wildcard_detail,
+    list_prompts,
+    list_wildcards,
+    rename_prompt,
+    save_prompt,
+    search_catalog,
+    search_prompts,
+)
 from .tag_data import (
     POOL_CATEGORY_MAP,
     TAG_ENTITIES_DIR,
@@ -235,6 +247,87 @@ async def get_prompt_catalog_search(request):
         )
     except FileNotFoundError as e:
         return web.json_response({"error": str(e)}, status=404)
+
+
+@server.PromptServer.instance.routes.get("/charlierz-prompt-catalog/prompts")
+async def get_prompt_catalog_prompts(_request):
+    return web.json_response(list_prompts())
+
+
+@server.PromptServer.instance.routes.get("/charlierz-prompt-catalog/prompt")
+async def get_prompt_catalog_prompt(request):
+    prompt_id = str(request.query.get("id", ""))
+    if not prompt_id.strip():
+        return web.json_response({"error": "Missing prompt id"}, status=400)
+    try:
+        return web.json_response(get_prompt_detail(prompt_id))
+    except ValueError as e:
+        return web.json_response({"error": str(e)}, status=404)
+
+
+@server.PromptServer.instance.routes.get("/charlierz-prompt-catalog/prompt-search")
+async def get_prompt_catalog_prompt_search(request):
+    query = str(request.query.get("q", ""))
+    try:
+        limit = int(request.query.get("limit", 80))
+    except (TypeError, ValueError):
+        limit = 80
+    limit = max(1, min(limit, 200))
+    return web.json_response(search_prompts(query, limit=limit))
+
+
+@server.PromptServer.instance.routes.post("/charlierz-prompt-catalog/prompt")
+async def post_prompt_catalog_prompt(request):
+    try:
+        payload = await request.json()
+    except json.JSONDecodeError:
+        return web.json_response({"error": "Invalid JSON body"}, status=400)
+
+    prompt_id = str(payload.get("id", ""))
+    text = str(payload.get("text", ""))
+    overwrite = bool(payload.get("overwrite", False))
+    try:
+        return web.json_response(save_prompt(prompt_id, text, overwrite=overwrite))
+    except FileExistsError as e:
+        return web.json_response({"error": str(e)}, status=409)
+    except ValueError as e:
+        return web.json_response({"error": str(e)}, status=400)
+
+
+@server.PromptServer.instance.routes.post("/charlierz-prompt-catalog/prompt/rename")
+async def post_prompt_catalog_prompt_rename(request):
+    try:
+        payload = await request.json()
+    except json.JSONDecodeError:
+        return web.json_response({"error": "Invalid JSON body"}, status=400)
+
+    prompt_id = str(payload.get("id", ""))
+    new_id = str(payload.get("newId", ""))
+    overwrite = bool(payload.get("overwrite", False))
+    try:
+        return web.json_response(rename_prompt(prompt_id, new_id, overwrite=overwrite))
+    except FileExistsError as e:
+        return web.json_response({"error": str(e)}, status=409)
+    except ValueError as e:
+        message = str(e)
+        status = 404 if message.startswith("Unknown prompt:") else 400
+        return web.json_response({"error": message}, status=status)
+
+
+@server.PromptServer.instance.routes.post("/charlierz-prompt-catalog/prompt/delete")
+async def post_prompt_catalog_prompt_delete(request):
+    try:
+        payload = await request.json()
+    except json.JSONDecodeError:
+        return web.json_response({"error": "Invalid JSON body"}, status=400)
+
+    prompt_id = str(payload.get("id", ""))
+    try:
+        return web.json_response(delete_prompt(prompt_id))
+    except ValueError as e:
+        message = str(e)
+        status = 404 if message.startswith("Unknown prompt:") else 400
+        return web.json_response({"error": message}, status=status)
 
 
 @server.PromptServer.instance.routes.post("/charlierz-prompt-catalog/preview")

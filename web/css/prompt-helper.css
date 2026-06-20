@@ -103,7 +103,8 @@
   background: rgb(127 127 127 / 8%);
 }
 
-#charlierz-prompt-helper-autocomplete .charlierz-tag-popup-item:nth-child(even) {
+#charlierz-prompt-helper-autocomplete
+  .charlierz-tag-popup-item:nth-child(even) {
   background: rgb(127 127 127 / 4%);
 }
 
@@ -275,6 +276,18 @@
   transform: translateY(1px);
 }
 
+.charlierz-wildcard-browser-tabs {
+  display: flex;
+  gap: 6px;
+  padding: 8px 8px 0;
+  background: var(--comfy-input-bg);
+}
+
+.charlierz-wildcard-browser-tabs button.active {
+  background: var(--comfy-hover-bg);
+  box-shadow: inset 0 -2px 0 var(--p-blue-400, #60a5fa);
+}
+
 .charlierz-wildcard-browser-searchbar {
   display: flex;
   align-items: center;
@@ -327,6 +340,51 @@
 .charlierz-wildcard-browser-results,
 .charlierz-wildcard-browser-details {
   overflow-y: auto;
+}
+
+.charlierz-prompt-browser-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 8px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.charlierz-prompt-id-input {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  padding: 6px 8px;
+  background: var(--comfy-input-bg);
+  color: var(--input-text);
+}
+
+.charlierz-prompt-editor {
+  display: block;
+  box-sizing: border-box;
+  width: calc(100% - 16px);
+  min-height: 220px;
+  margin: 8px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  padding: 8px;
+  resize: vertical;
+  background: var(--comfy-input-bg);
+  color: var(--input-text);
+  font-family: monospace;
+}
+
+.charlierz-prompt-preview {
+  min-height: 120px;
+  margin: 8px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  padding: 8px;
+  overflow: auto;
+  background: rgb(127 127 127 / 8%);
+  color: var(--input-text);
+  white-space: pre-wrap;
 }
 
 .charlierz-wildcard-browser-detail-header {
@@ -416,12 +474,16 @@
   white-space: nowrap;
 }
 
-.charlierz-wildcard-browser-tree-group > summary .charlierz-wildcard-browser-row-insert {
+.charlierz-wildcard-browser-tree-group
+  > summary
+  .charlierz-wildcard-browser-row-insert {
   float: right;
   margin-left: 8px;
 }
 
-.charlierz-wildcard-browser-tree-group .charlierz-wildcard-browser-tree-group > summary {
+.charlierz-wildcard-browser-tree-group
+  .charlierz-wildcard-browser-tree-group
+  > summary {
   padding-left: 22px;
 }
 
