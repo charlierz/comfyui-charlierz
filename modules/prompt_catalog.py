@@ -28,7 +28,6 @@ from .tag_data import (
 WILDCARDS_DIR = os.path.join(DATA_DIR, "wildcards")
 PROMPTS_DIR = os.path.join(DATA_DIR, "prompts")
 CHARACTER_TAGS_FILE = os.path.join(TAG_RELATIONSHIPS_DIR, "character_tags.tsv")
-CHARACTER_RELATED_MIN_TAGS = 5
 CHARACTER_RELATED_MAX_TAGS = 10
 
 MAX_EXPANSION_DEPTH = 32
@@ -1022,6 +1021,7 @@ def _expand_character_related(
     context: ExpansionContext,
     weight_mode: WeightMode,
 ) -> str:
+    del rng, weight_mode
     character_tag = context.character_tag or _character_tag_from_context_text(context.emitted_text)
     if not character_tag:
         diagnostics.warn(
@@ -1033,34 +1033,16 @@ def _expand_character_related(
     related = _read_character_related_tags().get(character_tag, [])
     category_index = _read_related_tag_category_index()
     candidates = [
-        WildcardTag(text=tag, weight=_transform_tag_pool_weight(float(max(count, 1)), weight_mode), line_number=index)
-        for index, tag in enumerate(related)
-        for candidate_category, count in [category_index.get(normalize_tag(tag), ("", 0))]
+        tag
+        for tag in related
+        for candidate_category, _count in [category_index.get(normalize_tag(tag), ("", 0))]
         if candidate_category == category
     ]
     if not candidates:
         diagnostics.warn(f"No {category} related tags found for character: {display_tag(character_tag)}")
         return ""
 
-    selected = _weighted_sample_character_related(candidates, rng)
-    return ", ".join(tag.text for tag in selected)
-
-
-def _weighted_sample_character_related(tags: list[WildcardTag], rng: random.Random) -> list[WildcardTag]:
-    count = rng.randint(CHARACTER_RELATED_MIN_TAGS, CHARACTER_RELATED_MAX_TAGS)
-    if len(tags) <= count:
-        return tags
-
-    remaining = tags.copy()
-    selected: list[WildcardTag] = []
-    for _ in range(count):
-        tag = _weighted_choice(remaining, rng)
-        remaining.remove(tag)
-        selected.append(tag)
-    selected.sort(key=lambda tag: tag.line_number)
-    return selected
-
-
+    return ", ".join(candidates[:CHARACTER_RELATED_MAX_TAGS])
 
 
 def _parse_int(value: object, *, default: int) -> int:

@@ -17,6 +17,8 @@ import {
 const extensionId = "charlierz.PromptHelperAutocomplete";
 const autocomplete = new PromptHelperAutocomplete();
 const wildcardPreviewTextareas = new WeakSet();
+const LAST_WILDCARD_SEED_PROPERTY = "charlierzLastWildcardSeed";
+const LAST_PREVIEW_TEXT_PROPERTY = "charlierzLastPreviewText";
 let promptCategories = [];
 let promptCategoryIds = new Set();
 let promptCategorySourceMap = new Map();
@@ -82,6 +84,22 @@ function setWidgetValue(node, name, value) {
   widget.callback?.(value);
   node.setDirtyCanvas?.(true, true);
   return true;
+}
+
+function ensureNodeProperties(node) {
+  node.properties ??= {};
+  return node.properties;
+}
+
+function setNodeProperty(node, key, value) {
+  ensureNodeProperties(node)[key] = value;
+  node.setDirtyCanvas?.(true, true);
+}
+
+function getFirstUiValue(message, key) {
+  const value = message?.[key];
+  if (Array.isArray(value)) return value[0];
+  return value;
 }
 
 function addActionButton(node, label, callback) {
@@ -1315,7 +1333,8 @@ class WildcardBrowser {
 const wildcardBrowser = new WildcardBrowser();
 
 function useLastQueuedWildcardSeed(node) {
-  const lastSeed = node.lastWildcardSeed;
+  const lastSeed =
+    node.lastWildcardSeed ?? node.properties?.[LAST_WILDCARD_SEED_PROPERTY];
   if (!Number.isFinite(Number(lastSeed))) {
     alert("No queued wildcard seed recorded yet. Run the node once first.");
     return;
@@ -1325,12 +1344,66 @@ function useLastQueuedWildcardSeed(node) {
 }
 
 function rememberWildcardSeedOnExecuted(nodeType) {
+  const originalOnNodeCreated = nodeType.prototype.onNodeCreated;
+  nodeType.prototype.onNodeCreated = function () {
+    originalOnNodeCreated?.apply(this, arguments);
+    const lastSeed = this.properties?.[LAST_WILDCARD_SEED_PROPERTY];
+    if (Number.isFinite(Number(lastSeed))) {
+      this.lastWildcardSeed = Number(lastSeed);
+    }
+  };
+
   const originalOnExecuted = nodeType.prototype.onExecuted;
   nodeType.prototype.onExecuted = function (message) {
     originalOnExecuted?.apply(this, arguments);
-    const lastSeed = message?.last_seed?.[0];
+    const lastSeed = getFirstUiValue(message, "last_seed");
     if (Number.isFinite(Number(lastSeed))) {
       this.lastWildcardSeed = Number(lastSeed);
+      setNodeProperty(this, LAST_WILDCARD_SEED_PROPERTY, Number(lastSeed));
+    }
+  };
+}
+
+function restorePreviewAnyText(node) {
+  const previewText = node.properties?.[LAST_PREVIEW_TEXT_PROPERTY];
+  if (typeof previewText !== "string") return false;
+
+  let restored = false;
+  for (const name of ["preview_text", "preview_markdown"]) {
+    restored = setWidgetValue(node, name, previewText) || restored;
+  }
+
+  for (const widget of node.widgets ?? []) {
+    if (
+      !String(widget.name ?? "")
+        .toLowerCase()
+        .includes("preview")
+    )
+      continue;
+    widget.value = previewText;
+    widget.callback?.(previewText);
+    restored = true;
+  }
+
+  if (restored) node.setDirtyCanvas?.(true, true);
+  return restored;
+}
+
+function rememberPreviewAnyText(nodeType) {
+  const originalOnNodeCreated = nodeType.prototype.onNodeCreated;
+  nodeType.prototype.onNodeCreated = function () {
+    originalOnNodeCreated?.apply(this, arguments);
+    restorePreviewAnyText(this);
+    setTimeout(() => restorePreviewAnyText(this), 0);
+  };
+
+  const originalOnExecuted = nodeType.prototype.onExecuted;
+  nodeType.prototype.onExecuted = function (message) {
+    originalOnExecuted?.apply(this, arguments);
+    const previewText = getFirstUiValue(message, "text");
+    if (typeof previewText === "string") {
+      setNodeProperty(this, LAST_PREVIEW_TEXT_PROPERTY, previewText);
+      restorePreviewAnyText(this);
     }
   };
 }
@@ -1360,6 +1433,11 @@ async function unloadLlamaCppModel(node) {
 app.registerExtension({
   name: extensionId,
   beforeRegisterNodeDef(nodeType, nodeData) {
+    if (nodeData.name === "PreviewAny") {
+      rememberPreviewAnyText(nodeType);
+      return;
+    }
+
     if (nodeData.name === "EstimateTextTokens") {
       const originalOnNodeCreated = nodeType.prototype.onNodeCreated;
       nodeType.prototype.onNodeCreated = function () {

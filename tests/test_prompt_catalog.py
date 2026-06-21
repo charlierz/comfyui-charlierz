@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import os
-import random
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -137,13 +136,7 @@ class PromptCatalogExpansionTests(unittest.TestCase):
         self.assertIn("appearance: long hair, blue eyes", result)
         self.assertIn("clothes: skirt, shirt", result)
 
-    def test_character_related_wildcards_use_configured_weight_mode(self):
-        captured_weights: list[float] = []
-
-        def capture_weights(tags, rng):
-            captured_weights.extend(tag.weight for tag in tags)
-            return tags
-
+    def test_character_related_wildcards_use_relationship_order_not_weight_mode(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             wildcards_dir = os.path.join(temp_dir, "wildcards")
             tag_pools_dir = os.path.join(temp_dir, "tag_pools")
@@ -153,23 +146,21 @@ class PromptCatalogExpansionTests(unittest.TestCase):
             os.makedirs(wildcards_dir)
             self._write(temp_dir, "characters.tsv", "tag\tcount\tfranchises\nhatsune miku\t100\tvocaloid\n")
             self._write(temp_dir, "franchises.tsv", "tag\tcount\nvocaloid\t1000\n")
-            self._write(temp_dir, "character_tags.tsv", "tag\trelated\nhatsune miku\tlong hair, blue eyes\n")
+            self._write(temp_dir, "character_tags.tsv", "tag\trelated\nhatsune miku\tblue eyes, long hair\n")
             self._write(tag_pools_dir, "appearance/hair.tsv", "tag\tcount\nlong hair\t100\nblue eyes\t3\n")
             with patch.object(prompt_catalog, "WILDCARDS_DIR", wildcards_dir), patch.object(
                 prompt_catalog, "TAG_POOLS_DIR", tag_pools_dir
             ), patch.object(prompt_catalog, "CHARACTERS_ENTITIES_FILE", characters_path), patch.object(
                 prompt_catalog, "FRANCHISES_FILE", franchises_path
-            ), patch.object(prompt_catalog, "CHARACTER_TAGS_FILE", relationships_path), patch.object(
-                prompt_catalog, "_weighted_sample_character_related", side_effect=capture_weights
-            ):
-                _result, diagnostics = prompt_catalog.expand_wildcards(
+            ), patch.object(prompt_catalog, "CHARACTER_TAGS_FILE", relationships_path):
+                result, diagnostics = prompt_catalog.expand_wildcards(
                     "__characters__\n__character_appearance__",
                     seed=1,
                     weight_mode="log",
                 )
 
         self.assertEqual(diagnostics, [])
-        self.assertEqual(captured_weights, [prompt_catalog.math.log1p(100), prompt_catalog.math.log1p(3)])
+        self.assertIn("blue eyes, long hair", result)
 
     def test_character_related_wildcards_use_literal_character_tag_before_special_wildcard(self):
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -198,22 +189,36 @@ class PromptCatalogExpansionTests(unittest.TestCase):
         self.assertIn("appearance: long hair, blue eyes", result)
         self.assertIn("clothes: shirt", result)
 
-    def test_character_related_wildcards_sample_five_to_ten_tags_weighted_by_count(self):
-        tags = [WildcardTag(text=f"tag {index}", weight=1.0, line_number=index) for index in range(10)]
-        tags.extend(
-            [
-                WildcardTag(text="common tag 1", weight=10.0, line_number=10),
-                WildcardTag(text="common tag 2", weight=10.0, line_number=11),
-            ]
-        )
+    def test_character_related_wildcards_take_first_ten_matching_tags(self):
+        appearance_tags = [f"appearance tag {index}" for index in range(12)]
+        related_tags = [tag for pair in zip(appearance_tags, ["shirt"] * 12, strict=True) for tag in pair]
 
-        selected = prompt_catalog._weighted_sample_character_related(tags, random.Random(1))
+        with tempfile.TemporaryDirectory() as temp_dir:
+            wildcards_dir = os.path.join(temp_dir, "wildcards")
+            tag_pools_dir = os.path.join(temp_dir, "tag_pools")
+            characters_path = os.path.join(temp_dir, "characters.tsv")
+            franchises_path = os.path.join(temp_dir, "franchises.tsv")
+            relationships_path = os.path.join(temp_dir, "character_tags.tsv")
+            os.makedirs(wildcards_dir)
+            self._write(temp_dir, "characters.tsv", "tag\tcount\tfranchises\nhatsune miku\t100\tvocaloid\n")
+            self._write(temp_dir, "franchises.tsv", "tag\tcount\nvocaloid\t1000\n")
+            self._write(temp_dir, "character_tags.tsv", f"tag\trelated\nhatsune miku\t{', '.join(related_tags)}\n")
+            self._write(
+                tag_pools_dir,
+                "appearance/test.tsv",
+                "tag\tcount\n" + "".join(f"{tag}\t1\n" for tag in appearance_tags),
+            )
+            self._write(tag_pools_dir, "clothes/test.tsv", "tag\tcount\nshirt\t1\n")
+            with patch.object(prompt_catalog, "WILDCARDS_DIR", wildcards_dir), patch.object(
+                prompt_catalog, "TAG_POOLS_DIR", tag_pools_dir
+            ), patch.object(prompt_catalog, "CHARACTERS_ENTITIES_FILE", characters_path), patch.object(
+                prompt_catalog, "FRANCHISES_FILE", franchises_path
+            ), patch.object(prompt_catalog, "CHARACTER_TAGS_FILE", relationships_path):
+                result, diagnostics = prompt_catalog.expand_wildcards("__characters__\n__character_appearance__", seed=1)
 
-        self.assertGreaterEqual(len(selected), 5)
-        self.assertLessEqual(len(selected), 10)
-        self.assertIn("common tag 1", {tag.text for tag in selected})
-        self.assertIn("common tag 2", {tag.text for tag in selected})
-        self.assertEqual(selected, sorted(selected, key=lambda tag: tag.line_number))
+        self.assertEqual(diagnostics, [])
+        self.assertIn(", ".join(appearance_tags[:10]), result)
+        self.assertNotIn(appearance_tags[10], result)
 
     def test_empty_character_related_wildcards_expand_to_blank(self):
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -332,7 +337,7 @@ class WildcardProcessorNodeTests(unittest.TestCase):
         result = WildcardProcessor().process("{red|blue}", "previous preview", "sqrt", False, 1)
 
         self.assertEqual(result["result"], ("red",))
-        self.assertEqual(result["ui"], {"last_seed": [1]})
+        self.assertEqual(result["ui"], {"last_seed": [1], "text": (result["result"][0],)})
 
 
 class PromptCatalogSearchTests(unittest.TestCase):

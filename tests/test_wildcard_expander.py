@@ -33,7 +33,7 @@ class WildcardExpanderNodeTests(unittest.TestCase):
             result = WildcardExpander().expand("__color/basic__ dress", "count", 0)
 
         self.assertEqual(result["result"], ("red dress",))
-        self.assertEqual(result["ui"], {"last_seed": [0]})
+        self.assertEqual(result["ui"], {"last_seed": [0], "text": ("red dress",)})
 
     def test_invalid_weight_mode_falls_back_to_sqrt(self):
         result = WildcardExpander().expand("plain text", "invalid", 0)

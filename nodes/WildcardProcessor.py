@@ -43,7 +43,7 @@ class WildcardProcessor:
         seed = int(seed or 0)
         processed_text, _diagnostics = expand_wildcards(wildcard_text, seed=seed, weight_mode=weight_mode)
         return {
-            "ui": {"last_seed": [seed]},
+            "ui": {"last_seed": [seed], "text": (processed_text,)},
             "result": (processed_text,),
         }
 

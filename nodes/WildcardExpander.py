@@ -40,7 +40,7 @@ class WildcardExpander:
             weight_mode=weight_mode,  # type: ignore[arg-type]
         )
         return {
-            "ui": {"last_seed": [seed]},
+            "ui": {"last_seed": [seed], "text": (processed_text,)},
             "result": (processed_text,),
         }
 
