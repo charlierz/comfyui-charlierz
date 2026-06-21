@@ -1,9 +1,13 @@
 tag	count
+mole	222127
 tattoo	110753
 facial mark	75765
 scar	71630
 ear piercing	60208
+mole under mouth	44215
+scar on face	36678
 veins	33487
+freckles	29987
 blood on face	24152
 forehead mark	20009
 arm tattoo	19686
@@ -14,6 +18,7 @@ whisker markings	12630
 navel piercing	11719
 pubic tattoo	11529
 facial tattoo	10459
+scar on cheek	10333
 stitches	9249
 leg tattoo	8909
 body markings	8254
@@ -24,7 +29,9 @@ animal ear piercing	6561
 bruise	6148
 stomach tattoo	5666
 scar on arm	5156
+multiple moles	5049
 blood from mouth	4650
+mole on neck	4517
 bite mark	4320
 scar on chest	4180
 tongue piercing	3807
@@ -35,25 +42,33 @@ teardrop facial mark	3264
 burn scar	2959
 cross scar	2949
 scratches	2858
+dirty face	2816
 hickey	2739
 barcode tattoo	2651
+body freckles	2554
 flower tattoo	2474
 slap mark	2344
 nose piercing	2338
 star facial mark	2334
+stitched face	2284
 blood stain	2225
 blood from eyes	2212
 veiny arms	2178
+eyebrow piercing	2163
 industrial piercing	2152
 lip piercing	2078
 scar on stomach	2061
 tail piercing	2053
 scar on forehead	1984
+eyebrow cut	1943
 multiple piercings	1925
+mole on cheek	1924
 scar on neck	1911
 heart facial mark	1893
 scar on leg	1796
+bruise on face	1697
 multiple scars	1630
+mole on stomach	1628
 hand tattoo	1616
 crescent facial mark	1552
 star tattoo	1549
@@ -64,15 +79,24 @@ triangle facial mark	1373
 glowing tattoo	1311
 linked piercing	1306
 teardrop tattoo	1305
+mole above mouth	1259
+mole on arm	1117
 winged heart tattoo	1047
+mole on collarbone	1039
+paint splatter on face	1038
+no mole	1020
 blood on leg	1012
+scar on mouth	997
 stitched arm	986
+stitched mouth	978
 forehead tattoo	971
 labret piercing	945
+mouth piercing	935
 spiked ear piercing	858
 butterfly tattoo	818
 self-harm scar	805
 blood drip	794
+mole on armpit	794
 cloud tattoo	758
 red tattoo	757
 circle facial mark	748
@@ -82,9 +106,12 @@ whip marks	683
 tribal tattoo	680
 birthmark	671
 bindi	663
+mole on shoulder	652
 stitched leg	651
 scar on back	618
+drawn whiskers	615
 veiny hands	615
+lipstick mark on face	614
 scar on shoulder	607
 scar on tail	607
 flower on chest	579
@@ -93,6 +120,7 @@ bite mark on neck	567
 blood on chest	547
 bite mark on shoulder	482
 wing piercing	473
+marking on cheek	459
 stitched neck	449
 scars all over	440
 blood in mouth	439
@@ -101,6 +129,7 @@ burnt	433
 bruised eye	429
 markings	408
 blue blood	403
+mole on crotch	386
 hip tattoo	377
 penis piercing	371
 labia piercing	353
@@ -114,28 +143,39 @@ plug (piercing)	289
 joestar birthmark	283
 fish tattoo	280
 rope marks	280
+mole on leg	275
 tramp stamp	272
 spike piercing	271
 cross tattoo	266
 black blood	240
+mole on back	217
 black tears	216
 blood on feet	215
 lipstick mark on leg	213
 green blood	207
 horn piercing	199
+mole on chest	199
+cheek piercing	196
 blood on neck	194
 no scar	193
 arm markings	191
 subdermal port	189
 purple blood	176
 bat tattoo	171
+mole on forehead	162
 single nipple piercing	162
+chin piercing	161
+heart on cheek	160
+veiny face	159
+tongue tattoo	156
 areola piercing	152
 bridge piercing	152
 ear birthmark	150
 frenulum piercing	136
 lip ring	129
+anti-eyebrow piercing	124
 piercing hole	119
+mole on nose	118
 collarbone piercing	114
 wrist tattoo	113
 tattoo sleeve	106

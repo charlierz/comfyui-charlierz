@@ -66,6 +66,29 @@ class ApiCacheTests(unittest.TestCase):
         self.assertEqual(second, ["long hair", "smile"])
         self.assertEqual(opened.call_count, 1)
 
+    def test_character_tags_with_spaces_are_categorized(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = os.path.join(temp_dir, "tag_pools")
+            os.makedirs(os.path.join(root, "appearance", "hair"))
+            os.makedirs(os.path.join(root, "appearance", "face"))
+            character_tags_path = os.path.join(temp_dir, "character_tags.tsv")
+
+            with open(os.path.join(root, "appearance", "hair", "length.tsv"), "w", encoding="utf-8") as f:
+                f.write("tag\tcount\n")
+                f.write("long hair\t3608339\n")
+            with open(os.path.join(root, "appearance", "face", "eyes.tsv"), "w", encoding="utf-8") as f:
+                f.write("tag\tcount\n")
+                f.write("purple eyes\t685847\n")
+            with open(character_tags_path, "w", encoding="utf-8") as f:
+                f.write("tag\trelated\n")
+                f.write("emilia (re:zero)\tlong hair, purple eyes\n")
+
+            with patch.object(api, "TAG_POOLS_DIR", root), patch.object(api, "CHARACTER_TAGS_FILE", character_tags_path):
+                result = api._read_character_tag_groups("emilia_(re:zero)")
+
+        self.assertEqual(result["categories"]["appearance"], ["long hair", "purple eyes"])
+        self.assertEqual(result["uncategorized"], [])
+
 
 
 class PromptCatalogApiTests(unittest.TestCase):

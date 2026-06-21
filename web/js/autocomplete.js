@@ -393,6 +393,7 @@ export class PromptHelperAutocomplete {
       DEFAULT_RELATED_METHOD;
     this.currentRelatedRequest = null;
     this.autocompleteRequestId = 0;
+    this.pendingAutocompleteRequest = null;
     this.#initializeRelatedMethodSelector();
     document.addEventListener("keydown", (event) =>
       this.#handleDocumentKeyDown(event),
@@ -410,14 +411,15 @@ export class PromptHelperAutocomplete {
       categoryIds.map((id) => [id, id.replaceAll("_", " ")]),
     );
     characterPopupCategoryOrder = [
-      ...categoryIds.filter((id) => ["body", "clothes"].includes(id)),
-      ...categoryIds.filter((id) => !["body", "clothes"].includes(id)),
+      ...categoryIds.filter((id) => ["appearance", "clothes"].includes(id)),
+      ...categoryIds.filter((id) => !["appearance", "clothes"].includes(id)),
     ];
   }
 
   #hideAllPopups() {
     this.currentRelatedRequest = null;
     this.autocompleteRequestId += 1;
+    this.pendingAutocompleteRequest = null;
     this.autocompletePopup.hide();
     this.relatedPopup.hide();
     this.characterTagsPopup.hide();
@@ -541,7 +543,13 @@ export class PromptHelperAutocomplete {
 
   async #handleInput(event) {
     const partial = getCurrentPartialTag(event.target);
-    if (!partial) this.autocompletePopup.hide();
+    if (!partial) {
+      this.autocompletePopup.hide();
+      return;
+    }
+
+    this.currentRelatedRequest = null;
+    this.relatedPopup.hide();
   }
 
   async #handleKeyUp(event) {
@@ -554,18 +562,27 @@ export class PromptHelperAutocomplete {
     const partial = getCurrentPartialTag(textarea);
     if (!config || !partial) {
       this.autocompleteRequestId += 1;
+      this.pendingAutocompleteRequest = null;
       this.autocompletePopup.hide();
       return;
     }
 
     const requestId = ++this.autocompleteRequestId;
-    const catalogResult = await searchCatalog({
-      query: partial,
-      context: config.searchContext ?? "prompt",
-      category: config.relatedCategory,
-      types: config.searchTypes ?? ["tag"],
-      limit: MAX_AUTOCOMPLETE_RESULTS,
-    });
+    this.pendingAutocompleteRequest = { textarea, requestId };
+    let catalogResult;
+    try {
+      catalogResult = await searchCatalog({
+        query: partial,
+        context: config.searchContext ?? "prompt",
+        category: config.relatedCategory,
+        types: config.searchTypes ?? ["tag"],
+        limit: MAX_AUTOCOMPLETE_RESULTS,
+      });
+    } finally {
+      if (this.pendingAutocompleteRequest?.requestId === requestId) {
+        this.pendingAutocompleteRequest = null;
+      }
+    }
     if (
       requestId !== this.autocompleteRequestId ||
       this.textareaConfig.get(textarea) !== config ||
@@ -637,6 +654,12 @@ export class PromptHelperAutocomplete {
     const config = this.textareaConfig.get(textarea);
     if (!config?.enableRelatedTags) return;
 
+    if (this.#isAutocompleteTakingPrecedence(textarea)) {
+      this.currentRelatedRequest = null;
+      this.relatedPopup.hide();
+      return;
+    }
+
     const range = getCurrentTagRange(textarea.value, textarea.selectionStart);
     const tag = normalizeTag(range?.tag);
     if (!tag) {
@@ -676,6 +699,12 @@ export class PromptHelperAutocomplete {
     this.currentRelatedRequest = request;
     const { node, textarea, category, tag } = request;
 
+    if (this.#isAutocompleteTakingPrecedence(textarea)) {
+      this.currentRelatedRequest = null;
+      this.relatedPopup.hide();
+      return;
+    }
+
     const relatedDetail = await loadRelatedTags(
       this.relatedMethod,
       category,
@@ -685,6 +714,12 @@ export class PromptHelperAutocomplete {
       0,
       MAX_RELATED_RESULTS,
     );
+    if (this.#isAutocompleteTakingPrecedence(textarea)) {
+      this.currentRelatedRequest = null;
+      this.relatedPopup.hide();
+      return;
+    }
+
     if (!relatedTags.length) {
       this.relatedPopup.hide();
       return;
@@ -699,6 +734,13 @@ export class PromptHelperAutocomplete {
       getExistingTags(textarea),
       (relatedTag) => this.#insertRelatedTag(node, textarea, relatedTag),
       tag,
+    );
+  }
+
+  #isAutocompleteTakingPrecedence(textarea) {
+    return (
+      this.autocompletePopup.isVisible() ||
+      this.pendingAutocompleteRequest?.textarea === textarea
     );
   }
 

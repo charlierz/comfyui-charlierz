@@ -11,26 +11,26 @@ from nodes.PromptHelper import PromptHelperFillRequest, _read_category_tags
 class PromptHelperCategoryTagTests(unittest.TestCase):
     def test_reads_category_tags_from_configured_tag_pool_source(self):
         with tempfile.TemporaryDirectory() as temp_dir:
-            self._write(temp_dir, "body/hair/color.tsv", "tag\tcount\nblue_hair\t10\nred hair\t5\n")
+            self._write(temp_dir, "appearance/hair/color.tsv", "tag\tcount\nblue_hair\t10\nred hair\t5\n")
             with patch("nodes.PromptHelper.TAG_POOLS_DIR", temp_dir):
-                tags = _read_category_tags("body", 1)
+                tags = _read_category_tags("appearance", 1)
 
         self.assertEqual(tags, ["blue hair"])
 
     def test_fill_request_can_include_category_tags_from_configured_sources(self):
         with tempfile.TemporaryDirectory() as temp_dir:
-            self._write(temp_dir, "body/hair/color.tsv", "tag\tcount\nblue_hair\t10\n")
+            self._write(temp_dir, "appearance/hair/color.tsv", "tag\tcount\nblue_hair\t10\n")
             with patch("nodes.PromptHelper.TAG_POOLS_DIR", temp_dir):
                 (prompt,) = PromptHelperFillRequest().build(
                     structured_prompt="{}",
-                    fill_body=True,
+                    fill_appearance=True,
                     clear_selected_categories=False,
                     include_category_tags=True,
                     max_tags_per_category=5,
                     user_prompt="",
                 )
 
-        self.assertIn("body:", prompt)
+        self.assertIn("appearance:", prompt)
         self.assertIn("blue hair", prompt)
 
     def _write(self, root: str, rel_path: str, content: str) -> None:

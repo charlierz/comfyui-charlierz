@@ -207,6 +207,7 @@ marimo/_lsp/
 __marimo__/
 
 # Large generated data files (download or generate locally)
+data/prompts/
 data/tag_relationships/
 data/danbooru_tags.csv
 data/danbooru_tags_cooccurrence.csv

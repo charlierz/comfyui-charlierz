@@ -15,6 +15,7 @@ from .tag_data import (
     CHARACTERS_ENTITIES_FILE,
     FRANCHISES_FILE,
     TAG_POOLS_DIR,
+    TAG_RELATIONSHIPS_DIR,
     clear_prompt_category_cache,
     display_tag,
     normalize_tag,
@@ -26,6 +27,9 @@ from .tag_data import (
 
 WILDCARDS_DIR = os.path.join(DATA_DIR, "wildcards")
 PROMPTS_DIR = os.path.join(DATA_DIR, "prompts")
+CHARACTER_TAGS_FILE = os.path.join(TAG_RELATIONSHIPS_DIR, "character_tags.tsv")
+CHARACTER_RELATED_MIN_TAGS = 5
+CHARACTER_RELATED_MAX_TAGS = 10
 
 MAX_EXPANSION_DEPTH = 32
 WeightMode = Literal["count", "sqrt", "log", "random"]
@@ -74,6 +78,12 @@ class ExpansionDiagnostics:
     def warn(self, message: str) -> None:
         self.messages.append(message)
         print(f"[charlierz wildcard] {message}")
+
+
+@dataclass
+class ExpansionContext:
+    character_tag: str | None = None
+    emitted_text: str = ""
 
 
 @lru_cache(maxsize=1)
@@ -207,6 +217,32 @@ def scan_wildcards() -> tuple[list[WildcardRecord], list[str]]:
             )
         )
 
+    special_wildcards = (
+        ("character_appearance", "Character appearance tags", "appearance"),
+        ("character_clothes", "Character clothes tags", "clothes"),
+    )
+    for wildcard_id, display_name, prompt_category in special_wildcards:
+        if wildcard_id in seen_paths_by_id:
+            diagnostics.append(
+                f"Duplicate wildcard id {wildcard_id}: {seen_paths_by_id[wildcard_id]} wins over special wildcard"
+            )
+            continue
+        seen_paths_by_id[wildcard_id] = "special"
+        records.append(
+            WildcardRecord(
+                id=wildcard_id,
+                path="special",
+                label=display_wildcard_label(wildcard_id),
+                tags=(),
+                metadata={
+                    "displayName": display_name,
+                    "sourceType": "special",
+                    "promptCategory": prompt_category,
+                    "description": "Uses the character selected by __characters__ or a literal character tag earlier in the same expansion.",
+                },
+            )
+        )
+
     if os.path.isdir(TAG_POOLS_DIR):
         directory_tags: dict[str, list[WildcardTag]] = {}
         directory_sources: dict[str, list[str]] = {}
@@ -282,6 +318,9 @@ def clear_prompt_catalog_caches() -> None:
     read_tag_records.cache_clear()
     scan_wildcards.cache_clear()
     wildcard_map.cache_clear()
+    _read_character_related_tags.cache_clear()
+    _read_character_tag_set.cache_clear()
+    _read_related_tag_category_index.cache_clear()
     scan_prompts.cache_clear()
     prompt_map.cache_clear()
 
@@ -758,7 +797,8 @@ def expand_wildcards(
     rng = random.Random(seed)
     records, scan_diagnostics = wildcard_map()
     diagnostics = ExpansionDiagnostics(scan_diagnostics.copy())
-    result = _expand_text(template_text, records, rng, diagnostics, [], max_depth, weight_mode)
+    context = ExpansionContext()
+    result = _expand_text(template_text, records, rng, diagnostics, [], max_depth, weight_mode, context)
     return (_unescape(result), diagnostics.messages)
 
 
@@ -772,14 +812,15 @@ def expand_wildcards_preserving_json(
     rng = random.Random(seed)
     records, scan_diagnostics = wildcard_map()
     diagnostics = ExpansionDiagnostics(scan_diagnostics.copy())
+    context = ExpansionContext()
 
     try:
         parsed = json.loads(template_text)
     except json.JSONDecodeError:
-        result = _expand_text(template_text, records, rng, diagnostics, [], max_depth, weight_mode)
+        result = _expand_text(template_text, records, rng, diagnostics, [], max_depth, weight_mode, context)
         return (_unescape(result), diagnostics.messages)
 
-    expanded = _expand_json_value(parsed, records, rng, diagnostics, max_depth, weight_mode)
+    expanded = _expand_json_value(parsed, records, rng, diagnostics, max_depth, weight_mode, context)
     return (json.dumps(expanded, ensure_ascii=False, indent=2), diagnostics.messages)
 
 
@@ -790,14 +831,15 @@ def _expand_json_value(
     diagnostics: ExpansionDiagnostics,
     max_depth: int,
     weight_mode: WeightMode,
+    context: ExpansionContext,
 ) -> Any:
     if isinstance(value, str):
-        return _unescape(_expand_text(value, records, rng, diagnostics, [], max_depth, weight_mode))
+        return _unescape(_expand_text(value, records, rng, diagnostics, [], max_depth, weight_mode, context))
     if isinstance(value, list):
-        return [_expand_json_value(item, records, rng, diagnostics, max_depth, weight_mode) for item in value]
+        return [_expand_json_value(item, records, rng, diagnostics, max_depth, weight_mode, context) for item in value]
     if isinstance(value, dict):
         return {
-            key: _expand_json_value(item, records, rng, diagnostics, max_depth, weight_mode)
+            key: _expand_json_value(item, records, rng, diagnostics, max_depth, weight_mode, context)
             for key, item in value.items()
         }
     return value
@@ -884,6 +926,141 @@ def _read_character_entity_wildcard_tags(path: str) -> list[WildcardTag]:
 
 def _primary_franchise(franchises: str) -> str:
     return franchises.split(",", 1)[0].strip()
+
+
+def _character_tag_from_expanded_text(text: str) -> str:
+    # __characters__ expands to "franchise, character" when a franchise is known.
+    return normalize_tag(text.rsplit(",", 1)[-1].strip())
+
+
+@lru_cache(maxsize=1)
+def _read_character_tag_set() -> set[str]:
+    characters: set[str] = set()
+    if not os.path.exists(CHARACTERS_ENTITIES_FILE):
+        return characters
+
+    with open(CHARACTERS_ENTITIES_FILE, newline="", encoding="utf-8", errors="replace") as f:
+        for row in csv.DictReader(f, delimiter="\t"):
+            character = (row.get("tag") or "").strip()
+            if character:
+                characters.add(normalize_tag(character))
+    return characters
+
+
+def _character_tag_from_context_text(text: str) -> str | None:
+    characters = _read_character_tag_set()
+    if not characters:
+        return None
+
+    for raw_tag in reversed(re.split(r"[,\n;]+", text)):
+        normalized = normalize_tag(raw_tag.strip())
+        if normalized in characters:
+            return normalized
+    return None
+
+
+@lru_cache(maxsize=1)
+def _read_character_related_tags() -> dict[str, list[str]]:
+    characters: dict[str, list[str]] = {}
+    if not os.path.exists(CHARACTER_TAGS_FILE):
+        return characters
+
+    with open(CHARACTER_TAGS_FILE, "r", encoding="utf-8", errors="replace") as f:
+        for line_number, line in enumerate(f):
+            columns = line.rstrip("\n").split("\t")
+            if not columns or (line_number == 0 and columns[0] == "tag"):
+                continue
+            if len(columns) >= 3:
+                character, tags = columns[0].strip(), columns[2]
+            elif len(columns) == 2:
+                character, tags = columns[0].strip(), columns[1]
+            else:
+                continue
+            if character:
+                characters[normalize_tag(character)] = _split_tag_list(tags)
+    return characters
+
+
+@lru_cache(maxsize=1)
+def _read_related_tag_category_index() -> dict[str, tuple[str, int]]:
+    category_index: dict[str, tuple[str, int]] = {}
+    if not os.path.isdir(TAG_POOLS_DIR):
+        return category_index
+
+    for root, _dirs, files in os.walk(TAG_POOLS_DIR):
+        for filename in sorted(files):
+            if not filename.endswith(".tsv"):
+                continue
+            path = os.path.join(root, filename)
+            rel_path = os.path.relpath(path, TAG_POOLS_DIR)
+            top_dir = rel_path.split(os.sep)[0]
+            category = tag_pool_category_map().get(top_dir)
+            if category is None:
+                continue
+            for tag, count in read_tag_pool_tsv(path):
+                category_index.setdefault(normalize_tag(tag), (category, count))
+    return category_index
+
+
+def _split_tag_list(text: str) -> list[str]:
+    tags: list[str] = []
+    seen: set[str] = set()
+    for tag in text.replace("\n", ",").split(","):
+        tag = tag.strip()
+        normalized = normalize_tag(tag)
+        if not tag or normalized in seen:
+            continue
+        seen.add(normalized)
+        tags.append(display_tag(tag))
+    return tags
+
+
+def _expand_character_related(
+    category: str,
+    rng: random.Random,
+    diagnostics: ExpansionDiagnostics,
+    context: ExpansionContext,
+    weight_mode: WeightMode,
+) -> str:
+    character_tag = context.character_tag or _character_tag_from_context_text(context.emitted_text)
+    if not character_tag:
+        diagnostics.warn(
+            f"Character-related wildcard __character_{category}__ used before __characters__ selected a character"
+        )
+        return ""
+    context.character_tag = character_tag
+
+    related = _read_character_related_tags().get(character_tag, [])
+    category_index = _read_related_tag_category_index()
+    candidates = [
+        WildcardTag(text=tag, weight=_transform_tag_pool_weight(float(max(count, 1)), weight_mode), line_number=index)
+        for index, tag in enumerate(related)
+        for candidate_category, count in [category_index.get(normalize_tag(tag), ("", 0))]
+        if candidate_category == category
+    ]
+    if not candidates:
+        diagnostics.warn(f"No {category} related tags found for character: {display_tag(character_tag)}")
+        return ""
+
+    selected = _weighted_sample_character_related(candidates, rng)
+    return ", ".join(tag.text for tag in selected)
+
+
+def _weighted_sample_character_related(tags: list[WildcardTag], rng: random.Random) -> list[WildcardTag]:
+    count = rng.randint(CHARACTER_RELATED_MIN_TAGS, CHARACTER_RELATED_MAX_TAGS)
+    if len(tags) <= count:
+        return tags
+
+    remaining = tags.copy()
+    selected: list[WildcardTag] = []
+    for _ in range(count):
+        tag = _weighted_choice(remaining, rng)
+        remaining.remove(tag)
+        selected.append(tag)
+    selected.sort(key=lambda tag: tag.line_number)
+    return selected
+
+
 
 
 def _parse_int(value: object, *, default: int) -> int:
@@ -1057,6 +1234,7 @@ def _expand_text(
     stack: list[str],
     remaining_depth: int,
     weight_mode: WeightMode,
+    context: ExpansionContext,
 ) -> str:
     if remaining_depth <= 0:
         diagnostics.warn("Maximum wildcard expansion depth reached")
@@ -1069,16 +1247,17 @@ def _expand_text(
             end = _find_unescaped(text, "__", i + 2)
             if end != -1:
                 ref = text[i + 2 : end].strip()
-                output.append(_expand_ref(ref, records, rng, diagnostics, stack, remaining_depth - 1, weight_mode))
+                output.append(_expand_ref(ref, records, rng, diagnostics, stack, remaining_depth - 1, weight_mode, context))
                 i = end + 2
                 continue
         if text[i] == "{" and not _is_escaped(text, i):
             end = _find_matching_brace(text, i)
             if end != -1:
-                output.append(_expand_variant(text[i + 1 : end], records, rng, diagnostics, stack, remaining_depth - 1, weight_mode))
+                output.append(_expand_variant(text[i + 1 : end], records, rng, diagnostics, stack, remaining_depth - 1, weight_mode, context))
                 i = end + 1
                 continue
         output.append(text[i])
+        context.emitted_text += text[i]
         i += 1
     return "".join(output)
 
@@ -1091,8 +1270,12 @@ def _expand_ref(
     stack: list[str],
     remaining_depth: int,
     weight_mode: WeightMode,
+    context: ExpansionContext,
 ) -> str:
     wildcard_id = normalize_wildcard_id(ref)
+    if wildcard_id in {"character_appearance", "character_clothes"}:
+        category = "appearance" if wildcard_id == "character_appearance" else "clothes"
+        return _expand_character_related(category, rng, diagnostics, context, weight_mode)
     if "*" in wildcard_id:
         candidates = [
             entry
@@ -1117,8 +1300,10 @@ def _expand_ref(
         return f"[empty wildcard: {source}]"
 
     entry = _weighted_choice(candidates, rng)
+    if wildcard_id == "characters":
+        context.character_tag = _character_tag_from_expanded_text(entry.text)
     next_stack = stack if "*" in wildcard_id else [*stack, source]
-    return _expand_text(entry.text, records, rng, diagnostics, next_stack, remaining_depth, weight_mode)
+    return _expand_text(entry.text, records, rng, diagnostics, next_stack, remaining_depth, weight_mode, context)
 
 
 def _expand_variant(
@@ -1129,6 +1314,7 @@ def _expand_variant(
     stack: list[str],
     remaining_depth: int,
     weight_mode: WeightMode,
+    context: ExpansionContext,
 ) -> str:
     parts = _split_top_level(body, "$$")
     count = 1
@@ -1152,7 +1338,7 @@ def _expand_variant(
     for _ in range(min(count, len(remaining))):
         option = _weighted_choice(remaining, rng)
         remaining.remove(option)
-        selected.append(_expand_text(option.text, records, rng, diagnostics, stack, remaining_depth, weight_mode))
+        selected.append(_expand_text(option.text, records, rng, diagnostics, stack, remaining_depth, weight_mode, context))
     return separator.join(selected)
 
 

@@ -168,6 +168,25 @@ function attachWildcardProcessorPreview(element) {
   if (wildcardPreviewTextareas.has(element)) return;
   wildcardPreviewTextareas.add(element);
 
+  const hideForTextEdit = (event) => {
+    if (
+      event.type === "keydown" &&
+      (event.ctrlKey ||
+        event.metaKey ||
+        event.altKey ||
+        (event.key.length > 1 &&
+          !["Backspace", "Delete", "Space"].includes(event.key)))
+    ) {
+      return;
+    }
+
+    wildcardRefPreview.hide();
+  };
+
+  element.addEventListener("beforeinput", hideForTextEdit, true);
+  element.addEventListener("input", hideForTextEdit);
+  element.addEventListener("keydown", hideForTextEdit, true);
+
   element.addEventListener("click", (event) => {
     const ref = getWildcardRefAtCursor(element.value, element.selectionStart);
     if (!ref) {

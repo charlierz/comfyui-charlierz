@@ -65,40 +65,44 @@ Use `pose/` for visible body arrangement, interaction, or frozen action.
 - `pose/gesture.tsv` — communicative/recognizable gestures: `peace sign`, `facepalm`, `rabbit pose`.
 - `pose/hands.tsv` — hand placement/contact: `hand between legs`, `stroking own chin`.
 - `pose/breast_touch.tsv` — breast-specific touch/contact.
-- `pose/sexual.tsv` — sexual acts and sex positions.
+- `pose/sexual.tsv` — sexual acts, sex positions, and visible sexual-act cues/consequences such as `stomach bulge`.
+- `pose/fluids/` — sexual/body-fluid action-state pools, kept by fluid type: cum, pussy juice, saliva.
 - `pose/bondage.tsv` — bondage/restraint states and setups.
 - `pose/action.tsv` — residual visible actions that do not fit a more specific pose pool.
 
-### Body pools
+### Appearance pools
 
-Use `body/` for anatomy, body traits, visible body states, and character-level appearance traits.
+Use `appearance/` for anatomy, physical traits, visible body states, cosmetics, and character-level appearance traits.
 
-- Keep anatomy in body files: `pussy`, `clitoris`, `penis`, `labia`.
-- `body/pussy/` splits vulva/pubic-area tags into anatomy, pubic hair, state, and piercing pools.
-- `body/anatomy.tsv` is for general body parts and body-region traits that do not have a more specific file: `navel`, `collarbone`, `feet`, `back`.
-- `body/skin.tsv` is for complexion, skin/fur color, tan, and skin surface traits: `dark skin`, `tanlines`, `blue skin`, `shiny skin`.
-- `body/marks.tsv` is for tattoos, scars, bruises, markings, and piercings: `tattoo`, `scar on face`, `tramp stamp`, `lip ring`.
-- `body/nails.tsv` is for fingernails/toenails and nail styling: `black nails`, `long fingernails`, `nail art`.
-- `body/character.tsv` is the single body-owned bucket for character-level visual identity/archetype/species/age/gender-presentation tags: `loli`, `otoko no ko`, `cat girl`, `robot`.
-- `body/mechanical.tsv` is for mechanical/prosthetic body traits: `robot joints`, `mechanical arms`, `prosthetic leg`.
-- `body/fantasy/` is for non-human anatomy traits split by visible part: ears, tails, horns, halos, wings, and other traits.
-- Keep passive body states in body files: `gaping`, `sweat`, `steaming body`.
-- Use `body/moisture.tsv` for wetness/sweat states: `wet`, `sweat`, `very sweaty`, `steaming body`.
-- Move active manipulation/actions out of body: `spreading own pussy` → `pose/sexual.tsv`; `wiping sweat` → `pose/action.tsv`.
-- Use `body/exposure.tsv` for body visibility/nudity states: `nude`, `bare shoulders`, `cleavage`, `covering breasts`, `naked shirt`.
+- Keep anatomy in appearance files: `pussy`, `clitoris`, `penis`, `labia`.
+- Keep face anatomy/person-appearance traits in `appearance/face/`: eye color, stylized pupils/eyes, sclera/pupil color, eyebrows/eyelashes, facial hair, nose traits, lips/tongue/teeth anatomy.
+- `appearance/face/eyes.tsv` includes eye color, sclera/pupil color, eye anatomy, and stylized eye cues: `heart-shaped pupils`, `glowing eyes`, `jitome`, `sharingan`.
+- `appearance/face/eyebrows_eyelashes.tsv` is for eyebrow and eyelash appearance traits: `eyelashes`, `thick eyebrows`, `colored eyelashes`, `no eyebrows`.
+- `appearance/face/features.tsv` includes residual face traits such as nose traits, missing/hidden faces, extra faces, cheekbones, and face shape.
+- `appearance/face/facial_hair.tsv` is for beard, mustache, stubble, sideburn, and goatee traits.
+- `appearance/face/cosmetics.tsv` is for makeup, cosmetics, and face paint: `makeup`, `lipstick`, `eyeshadow`, `eyeliner`, `facepaint`.
+- `appearance/pussy/` splits vulva/pubic-area tags into anatomy, pubic hair, state, and piercing pools.
+- `appearance/anatomy.tsv` is for general body parts and body-region traits that do not have a more specific file: `navel`, `collarbone`, `feet`, `back`.
+- `appearance/skin.tsv` is for complexion, skin/fur color, tan, and skin surface traits: `dark skin`, `tanlines`, `blue skin`, `shiny skin`.
+- `appearance/marks.tsv` is for tattoos, scars, bruises, markings, and piercings: `tattoo`, `scar on face`, `tramp stamp`, `lip ring`.
+- `appearance/nails.tsv` is for fingernails/toenails and nail styling: `black nails`, `long fingernails`, `nail art`.
+- `appearance/character.tsv` is the single appearance-owned bucket for character-level visual identity/archetype/species/age/gender-presentation tags: `loli`, `otoko no ko`, `cat girl`, `robot`.
+- `appearance/mechanical.tsv` is for mechanical/prosthetic body traits: `robot joints`, `mechanical arms`, `prosthetic leg`.
+- `appearance/fantasy/` is for non-human anatomy traits split by visible part: ears, tails, horns, halos, wings, and other traits.
+- Keep passive body states in appearance files: `gaping`, `sweat`, `steaming body`.
+- Use `appearance/moisture.tsv` for passive wetness/sweat body-surface states: `wet`, `sweat`, `very sweaty`, `steaming body`; move sweatdrop symbols to `expression/symbols.tsv`.
+- Move active manipulation/actions out of appearance: `spreading own pussy` → `pose/sexual.tsv`; `wiping sweat` → `pose/action.tsv`.
+- Use `appearance/exposure.tsv` for body visibility/nudity states: `nude`, `bare shoulders`, `cleavage`, `covering breasts`, `naked shirt`.
 
-### Face pools
+### Expression pools
 
-Use `face/` for facial expression, eye/mouth appearance, gaze, and static face features.
+Use `expression/` for facial expression, gaze, emoticons, and spoken-symbol expression cues. Do not put person-appearance traits or stylized face/eye appearance here.
 
-- `face/eye_appearance.tsv` — static eye traits: `blue eyes`, `heterochromia`, `white pupils`, `black sclera`.
-- `face/features.tsv` — static face features and facial hair: `mole under eye`, `freckles`, `beard`, `sunken cheeks`.
-- `face/cosmetics.tsv` — makeup and cosmetics: `makeup`, `lipstick`, `eyeshadow`, `eyeliner`.
-- `face/eyes.tsv` — eye actions/expressions: `closed eyes`, `one eye closed`, `raised eyebrows`.
-- `face/mouth.tsv` — mouth expressions/actions.
-- `face/gaze.tsv` — gaze direction.
-- `face/emoticons.tsv` — literal drawn face/emoticon tags only: `:3`, `;d`, `@ @`, `w`.
-- `face/symbols.tsv` — expression punctuation and spoken-symbol tags: `?`, `!`, `spoken heart`, `spoken question mark`, `zzz`.
+- `expression/eyes.tsv` — eye actions/expressions: `closed eyes`, `one eye closed`, `raised eyebrows`.
+- `expression/mouth.tsv` — mouth expressions/actions and stylized mouth looks such as `fang`, `sharp teeth`, `no mouth`.
+- `expression/gaze.tsv` — gaze direction.
+- `expression/emoticons.tsv` — literal drawn face/emoticon tags only: `:3`, `;d`, `@ @`, `w`.
+- `expression/symbols.tsv` — expression punctuation and spoken-symbol tags: `?`, `!`, `spoken heart`, `spoken question mark`, `zzz`.
 
 ### Clothes pools
 
@@ -122,14 +126,14 @@ Camera pools separate viewpoint, framing, composition, and focus:
 
 Scene/background buckets:
 
-- `scene/background.tsv` — broad background setting states: `simple background`, `outdoors`, `indoors`, `day`, `night`.
-- `scene/bg/color.tsv`, `scene/bg/pattern.tsv` — background color/pattern variants.
-- `scene/bg/places.tsv` — outdoor/public places and architectural locations.
-- `scene/bg/indoors.tsv` — interiors, rooms, furniture, and interior surfaces.
-- `scene/bg/nature.tsv` — general terrain/natural-location tags not covered by the narrower files.
-- `scene/bg/sky_weather.tsv` — sky, weather, celestial, and lighting-from-nature tags.
-- `scene/bg/plants.tsv` — plants, flowers, trees, leaves, petals, and gardens.
-- `scene/bg/water.tsv` — water, beaches, oceans, boats, and water-adjacent props.
+- `scene/background/general.tsv` — broad background setting states: `outdoors`, `indoors`, `day`, `night`, `blurry background`.
+- `scene/background/color.tsv`, `scene/background/pattern.tsv` — background color/pattern variants.
+- `scene/background/places.tsv` — outdoor/public places and architectural locations.
+- `scene/background/indoors.tsv` — interiors, rooms, furniture, and interior surfaces.
+- `scene/background/nature.tsv` — general terrain/natural-location tags not covered by the narrower files.
+- `scene/background/sky_weather.tsv` — sky, weather, celestial, and lighting-from-nature tags.
+- `scene/background/plants.tsv` — plants, flowers, trees, leaves, petals, and gardens.
+- `scene/background/water.tsv` — water, beaches, oceans, boats, and water-adjacent props.
 - `scene/objects.tsv` — general props and object subject matter.
 - `scene/weapons.tsv` — weapons and weapon-like props: `sword`, `gun`, `rifle`, `knife`, `staff`, `polearm`.
 - `scene/subject_matter.tsv` — broad subject/composition tags, including people-count and gender-composition tags: `1girl`, `solo`, `multiple girls`, `1other`.
@@ -150,7 +154,7 @@ Style buckets:
 - `style/color_palette.tsv` — palette/theme tags: `blue theme`, `muted color`, `pastel colors`, `rainbow gradient`.
 - `style/meta.tsv` — crossovers, references, connections, cameos, fourth-wall/meta tags, and source-category leakage that is about metadata rather than visible scene contents.
 - `style/meme_event.tsv` — memes, drawing challenges, holidays, greetings, and commemorative day tags.
-- Official/adapted/borrowed/alternate design variant tags belong in the most visible semantic domain: outfit variants under clothes, hair variants under body/hair, eye variants under face, palette variants under `style/color_palette.tsv`, and broad redesign/prototype metadata under `style/meta.tsv`.
+- Official/adapted/borrowed/alternate design variant tags belong in the most visible semantic domain: outfit variants under clothes, hair and eye variants under appearance, palette variants under `style/color_palette.tsv`, and broad redesign/prototype metadata under `style/meta.tsv`.
 - `style/genre_theme.tsv` — genre, setting, era, and thematic labels: `fantasy`, `cyberpunk`, `steampunk`, `post-apocalypse`.
 - `style/format.tsv` — comic/page/publication/format tags.
 - `style/styles.tsv` — art styles and rendering idioms.
@@ -164,10 +168,10 @@ Duplicates are not allowed globally. If a tag seems to belong in multiple places
 
 Examples:
 
-- `ass focus`, `leg focus` → `camera/focus.tsv`, not body anatomy files.
-- `head only` → `camera/framing.tsv`, not `body/anatomy.tsv`.
-- `object on head`, `pokemon on head`, `cat on head` → `scene/subject_matter.tsv`, not `body/anatomy.tsv`.
-- `covering breasts` → `body/exposure.tsv`, not `pose/breast_touch.tsv`.
+- `ass focus`, `leg focus` → `camera/focus.tsv`, not appearance anatomy files.
+- `head only` → `camera/framing.tsv`, not `appearance/anatomy.tsv`.
+- `object on head`, `pokemon on head`, `cat on head` → `scene/subject_matter.tsv`, not `appearance/anatomy.tsv`.
+- `covering breasts` → `appearance/exposure.tsv`, not `pose/breast_touch.tsv`.
 - `clothes lift` → `clothes/exposure.tsv`, not `pose/action.tsv`.
 - `framed breasts` → `clothes/exposure.tsv`, because clothing frames/reveals the breasts.
 - `blindfold` → `clothes/sexual/bdsm.tsv`, not generic accessories or scene objects.

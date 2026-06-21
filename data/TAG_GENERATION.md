@@ -65,8 +65,26 @@ All scripts are in `data/scripts/`. Run from repo root unless noted otherwise.
 | `download_danbooru_tag_csv.py` | Download source CSVs from Hugging Face | `danbooru_tags.csv`, `danbooru_tags_cooccurrence.csv` |
 | `generate_characters.py` | Character entity registry and relationships | `tag_entities/characters.tsv`, `tag_relationships/character_tags.tsv` |
 | `generate_tag_pool_related.py` | Non-character tag relationships | `tag_relationships/related_tags_cosine_jaccard.tsv`, `tag_relationships/related_tags_lift.tsv` |
+| `validate_tag_pools.py` | Validate curated pools/entities against `danbooru_tags.csv` | report only |
 
 One-off migration scripts are archived under `.ai/archive/` for provenance.
+
+## Validation
+
+Check that every tag in `danbooru_tags.csv` is represented by either `tag_pools/**/*.tsv`, `tag_entities/characters.tsv`, or `tag_entities/franchises.tsv`:
+
+```bash
+data/scripts/validate_tag_pools.py
+```
+
+The script fails on missing Danbooru tags, duplicate accounted tags, or suspicious TSV quoting. Tags curated locally but absent from `danbooru_tags.csv` are reported as extras but do not fail validation unless `--strict-extra` is used.
+
+Useful options:
+
+```bash
+data/scripts/validate_tag_pools.py --top 100
+data/scripts/validate_tag_pools.py --strict-extra
+```
 
 ## Character generation
 

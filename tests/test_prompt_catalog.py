@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import random
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -19,9 +20,11 @@ class PromptCatalogExpansionTests(unittest.TestCase):
         prompt_catalog.clear_prompt_catalog_caches()
 
     def test_expands_exact_wildcard_reference_deterministically(self):
-        with tempfile.TemporaryDirectory() as temp_dir:
+        with tempfile.TemporaryDirectory() as temp_dir, tempfile.TemporaryDirectory() as empty_tag_pools_dir:
             self._write(temp_dir, "appearance/hair/color.txt", "red hair\nblue hair\n")
-            with patch.object(prompt_catalog, "WILDCARDS_DIR", temp_dir):
+            with patch.object(prompt_catalog, "WILDCARDS_DIR", temp_dir), patch.object(
+                prompt_catalog, "TAG_POOLS_DIR", empty_tag_pools_dir
+            ):
                 result, diagnostics = prompt_catalog.expand_wildcards("1girl, __appearance/hair/color__", seed=1)
 
         self.assertTrue(result.startswith("1girl, "))
@@ -73,11 +76,11 @@ class PromptCatalogExpansionTests(unittest.TestCase):
 
     def test_expands_tag_pool_virtual_wildcard(self):
         with tempfile.TemporaryDirectory() as temp_dir, tempfile.TemporaryDirectory() as empty_wildcards_dir:
-            self._write(temp_dir, "body/hair/color.tsv", "tag\tcount\nred hair\t10\nblue hair\t1\n")
+            self._write(temp_dir, "appearance/hair/color.tsv", "tag\tcount\nred hair\t10\nblue hair\t1\n")
             with patch.object(prompt_catalog, "TAG_POOLS_DIR", temp_dir), patch.object(
                 prompt_catalog, "WILDCARDS_DIR", empty_wildcards_dir
             ):
-                result, diagnostics = prompt_catalog.expand_wildcards("__body/hair/color__", seed=1)
+                result, diagnostics = prompt_catalog.expand_wildcards("__appearance/hair/color__", seed=1)
 
         self.assertIn(result, {"red hair", "blue hair"})
         self.assertEqual(diagnostics, [])
@@ -105,14 +108,154 @@ class PromptCatalogExpansionTests(unittest.TestCase):
         self.assertEqual(franchise_result, "vocaloid")
         self.assertEqual(franchise_diagnostics, [])
 
+    def test_character_related_wildcards_use_selected_character(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            wildcards_dir = os.path.join(temp_dir, "wildcards")
+            tag_pools_dir = os.path.join(temp_dir, "tag_pools")
+            characters_path = os.path.join(temp_dir, "characters.tsv")
+            franchises_path = os.path.join(temp_dir, "franchises.tsv")
+            relationships_path = os.path.join(temp_dir, "character_tags.tsv")
+            os.makedirs(wildcards_dir)
+            self._write(temp_dir, "characters.tsv", "tag\tcount\tfranchises\nhatsune miku\t100\tvocaloid\n")
+            self._write(temp_dir, "franchises.tsv", "tag\tcount\nvocaloid\t1000\n")
+            self._write(temp_dir, "character_tags.tsv", "tag\trelated\nhatsune miku\tlong hair, skirt, blue eyes, shirt, solo\n")
+            self._write(tag_pools_dir, "appearance/hair.tsv", "tag\tcount\nlong hair\t1\nblue eyes\t1\n")
+            self._write(tag_pools_dir, "clothes/tops.tsv", "tag\tcount\nshirt\t1\n")
+            self._write(tag_pools_dir, "clothes/bottoms.tsv", "tag\tcount\nskirt\t1\n")
+            with patch.object(prompt_catalog, "WILDCARDS_DIR", wildcards_dir), patch.object(
+                prompt_catalog, "TAG_POOLS_DIR", tag_pools_dir
+            ), patch.object(prompt_catalog, "CHARACTERS_ENTITIES_FILE", characters_path), patch.object(
+                prompt_catalog, "FRANCHISES_FILE", franchises_path
+            ), patch.object(prompt_catalog, "CHARACTER_TAGS_FILE", relationships_path):
+                result, diagnostics = prompt_catalog.expand_wildcards(
+                    "__characters__\nappearance: __character_appearance__\nclothes: __character_clothes__",
+                    seed=1,
+                )
+
+        self.assertEqual(diagnostics, [])
+        self.assertIn("vocaloid, hatsune miku", result)
+        self.assertIn("appearance: long hair, blue eyes", result)
+        self.assertIn("clothes: skirt, shirt", result)
+
+    def test_character_related_wildcards_use_configured_weight_mode(self):
+        captured_weights: list[float] = []
+
+        def capture_weights(tags, rng):
+            captured_weights.extend(tag.weight for tag in tags)
+            return tags
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            wildcards_dir = os.path.join(temp_dir, "wildcards")
+            tag_pools_dir = os.path.join(temp_dir, "tag_pools")
+            characters_path = os.path.join(temp_dir, "characters.tsv")
+            franchises_path = os.path.join(temp_dir, "franchises.tsv")
+            relationships_path = os.path.join(temp_dir, "character_tags.tsv")
+            os.makedirs(wildcards_dir)
+            self._write(temp_dir, "characters.tsv", "tag\tcount\tfranchises\nhatsune miku\t100\tvocaloid\n")
+            self._write(temp_dir, "franchises.tsv", "tag\tcount\nvocaloid\t1000\n")
+            self._write(temp_dir, "character_tags.tsv", "tag\trelated\nhatsune miku\tlong hair, blue eyes\n")
+            self._write(tag_pools_dir, "appearance/hair.tsv", "tag\tcount\nlong hair\t100\nblue eyes\t3\n")
+            with patch.object(prompt_catalog, "WILDCARDS_DIR", wildcards_dir), patch.object(
+                prompt_catalog, "TAG_POOLS_DIR", tag_pools_dir
+            ), patch.object(prompt_catalog, "CHARACTERS_ENTITIES_FILE", characters_path), patch.object(
+                prompt_catalog, "FRANCHISES_FILE", franchises_path
+            ), patch.object(prompt_catalog, "CHARACTER_TAGS_FILE", relationships_path), patch.object(
+                prompt_catalog, "_weighted_sample_character_related", side_effect=capture_weights
+            ):
+                _result, diagnostics = prompt_catalog.expand_wildcards(
+                    "__characters__\n__character_appearance__",
+                    seed=1,
+                    weight_mode="log",
+                )
+
+        self.assertEqual(diagnostics, [])
+        self.assertEqual(captured_weights, [prompt_catalog.math.log1p(100), prompt_catalog.math.log1p(3)])
+
+    def test_character_related_wildcards_use_literal_character_tag_before_special_wildcard(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            wildcards_dir = os.path.join(temp_dir, "wildcards")
+            tag_pools_dir = os.path.join(temp_dir, "tag_pools")
+            characters_path = os.path.join(temp_dir, "characters.tsv")
+            franchises_path = os.path.join(temp_dir, "franchises.tsv")
+            relationships_path = os.path.join(temp_dir, "character_tags.tsv")
+            os.makedirs(wildcards_dir)
+            self._write(temp_dir, "characters.tsv", "tag\tcount\tfranchises\nhatsune miku\t100\tvocaloid\n")
+            self._write(temp_dir, "franchises.tsv", "tag\tcount\nvocaloid\t1000\n")
+            self._write(temp_dir, "character_tags.tsv", "tag\trelated\nhatsune miku\tlong hair, blue eyes, shirt\n")
+            self._write(tag_pools_dir, "appearance/hair.tsv", "tag\tcount\nlong hair\t1\nblue eyes\t1\n")
+            self._write(tag_pools_dir, "clothes/tops.tsv", "tag\tcount\nshirt\t1\n")
+            with patch.object(prompt_catalog, "WILDCARDS_DIR", wildcards_dir), patch.object(
+                prompt_catalog, "TAG_POOLS_DIR", tag_pools_dir
+            ), patch.object(prompt_catalog, "CHARACTERS_ENTITIES_FILE", characters_path), patch.object(
+                prompt_catalog, "FRANCHISES_FILE", franchises_path
+            ), patch.object(prompt_catalog, "CHARACTER_TAGS_FILE", relationships_path):
+                result, diagnostics = prompt_catalog.expand_wildcards(
+                    "hatsune miku\nappearance: __character_appearance__\nclothes: __character_clothes__",
+                    seed=1,
+                )
+
+        self.assertEqual(diagnostics, [])
+        self.assertIn("appearance: long hair, blue eyes", result)
+        self.assertIn("clothes: shirt", result)
+
+    def test_character_related_wildcards_sample_five_to_ten_tags_weighted_by_count(self):
+        tags = [WildcardTag(text=f"tag {index}", weight=1.0, line_number=index) for index in range(10)]
+        tags.extend(
+            [
+                WildcardTag(text="common tag 1", weight=10.0, line_number=10),
+                WildcardTag(text="common tag 2", weight=10.0, line_number=11),
+            ]
+        )
+
+        selected = prompt_catalog._weighted_sample_character_related(tags, random.Random(1))
+
+        self.assertGreaterEqual(len(selected), 5)
+        self.assertLessEqual(len(selected), 10)
+        self.assertIn("common tag 1", {tag.text for tag in selected})
+        self.assertIn("common tag 2", {tag.text for tag in selected})
+        self.assertEqual(selected, sorted(selected, key=lambda tag: tag.line_number))
+
+    def test_empty_character_related_wildcards_expand_to_blank(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            wildcards_dir = os.path.join(temp_dir, "wildcards")
+            tag_pools_dir = os.path.join(temp_dir, "tag_pools")
+            characters_path = os.path.join(temp_dir, "characters.tsv")
+            franchises_path = os.path.join(temp_dir, "franchises.tsv")
+            relationships_path = os.path.join(temp_dir, "character_tags.tsv")
+            os.makedirs(wildcards_dir)
+            os.makedirs(tag_pools_dir)
+            self._write(temp_dir, "characters.tsv", "tag\tcount\tfranchises\nayasaki hayate\t100\thayate no gotoku!\n")
+            self._write(temp_dir, "franchises.tsv", "tag\tcount\nhayate no gotoku!\t1000\n")
+            self._write(temp_dir, "character_tags.tsv", "tag\trelated\nayasaki hayate\tsolo, smile\n")
+            with patch.object(prompt_catalog, "WILDCARDS_DIR", wildcards_dir), patch.object(
+                prompt_catalog, "TAG_POOLS_DIR", tag_pools_dir
+            ), patch.object(prompt_catalog, "CHARACTERS_ENTITIES_FILE", characters_path), patch.object(
+                prompt_catalog, "FRANCHISES_FILE", franchises_path
+            ), patch.object(prompt_catalog, "CHARACTER_TAGS_FILE", relationships_path):
+                result, diagnostics = prompt_catalog.expand_wildcards(
+                    "__characters__\n__character_appearance__\n__character_clothes__",
+                    seed=1,
+                )
+
+        self.assertEqual(result, "hayate no gotoku!, ayasaki hayate\n\n")
+        self.assertNotIn("[empty character appearance", result)
+        self.assertNotIn("[empty character clothes", result)
+        self.assertEqual(
+            diagnostics,
+            [
+                "No appearance related tags found for character: ayasaki hayate",
+                "No clothes related tags found for character: ayasaki hayate",
+            ],
+        )
+
     def test_globs_tag_pool_virtual_wildcards(self):
         with tempfile.TemporaryDirectory() as temp_dir, tempfile.TemporaryDirectory() as empty_wildcards_dir:
-            self._write(temp_dir, "body/hair/color.tsv", "tag\tcount\nred hair\t1\n")
-            self._write(temp_dir, "body/hair/length.tsv", "tag\tcount\nlong hair\t1\n")
+            self._write(temp_dir, "appearance/hair/color.tsv", "tag\tcount\nred hair\t1\n")
+            self._write(temp_dir, "appearance/hair/length.tsv", "tag\tcount\nlong hair\t1\n")
             with patch.object(prompt_catalog, "TAG_POOLS_DIR", temp_dir), patch.object(
                 prompt_catalog, "WILDCARDS_DIR", empty_wildcards_dir
             ):
-                result, _ = prompt_catalog.expand_wildcards("__body/hair/*__", seed=1)
+                result, _ = prompt_catalog.expand_wildcards("__appearance/hair/*__", seed=1)
 
         self.assertIn(result, {"red hair", "long hair"})
 
@@ -132,16 +275,16 @@ class PromptCatalogExpansionTests(unittest.TestCase):
 
     def test_expands_nested_tag_pool_directory_wildcard(self):
         with tempfile.TemporaryDirectory() as temp_dir, tempfile.TemporaryDirectory() as empty_wildcards_dir:
-            self._write(temp_dir, "body/breasts/size.tsv", "tag\tcount\nlarge breasts\t1\n")
-            self._write(temp_dir, "body/breasts/shape.tsv", "tag\tcount\nround breasts\t1\n")
+            self._write(temp_dir, "appearance/breasts/size.tsv", "tag\tcount\nlarge breasts\t1\n")
+            self._write(temp_dir, "appearance/breasts/shape.tsv", "tag\tcount\nround breasts\t1\n")
             with patch.object(prompt_catalog, "TAG_POOLS_DIR", temp_dir), patch.object(
                 prompt_catalog, "WILDCARDS_DIR", empty_wildcards_dir
             ):
-                result, diagnostics = prompt_catalog.expand_wildcards("__body/breasts__", seed=1)
-                detail = prompt_catalog.get_wildcard_detail("body/breasts")
+                result, diagnostics = prompt_catalog.expand_wildcards("__appearance/breasts__", seed=1)
+                detail = prompt_catalog.get_wildcard_detail("appearance/breasts")
 
         self.assertIn(result, {"large breasts", "round breasts"})
-        self.assertEqual(detail["id"], "body/breasts")
+        self.assertEqual(detail["id"], "appearance/breasts")
         self.assertEqual(detail["tagCount"], 2)
         self.assertEqual(diagnostics, [])
 
@@ -333,15 +476,15 @@ class PromptCatalogSearchTests(unittest.TestCase):
     def test_wildcard_search_prefers_early_path_segments_over_leaf_only_matches(self):
         wildcards = [
             WildcardRecord(id="clothes/accessory/hair", path="tag_pools/clothes/accessory/hair.tsv", label="hair", tags=(), metadata={}),
-            WildcardRecord(id="body/hair/color", path="tag_pools/body/hair/color.tsv", label="color", tags=(), metadata={}),
-            WildcardRecord(id="body/pussy/pubic_hair", path="tag_pools/body/pussy/pubic_hair.tsv", label="pubic hair", tags=(), metadata={}),
+            WildcardRecord(id="appearance/hair/color", path="tag_pools/appearance/hair/color.tsv", label="color", tags=(), metadata={}),
+            WildcardRecord(id="appearance/pussy/pubic_hair", path="tag_pools/appearance/pussy/pubic_hair.tsv", label="pubic hair", tags=(), metadata={}),
         ]
         with patch.object(prompt_catalog, "read_tag_records", return_value=[]), patch.object(
             prompt_catalog, "scan_wildcards", return_value=(wildcards, [])
         ):
             results = prompt_catalog.search_catalog("hair", context="wildcard", types={"wildcard"})["results"]
 
-        self.assertEqual([result["id"] for result in results], ["body/hair/color", "clothes/accessory/hair", "body/pussy/pubic_hair"])
+        self.assertEqual([result["id"] for result in results], ["appearance/hair/color", "clothes/accessory/hair", "appearance/pussy/pubic_hair"])
 
     def test_search_strips_wildcard_delimiters_for_wildcard_queries(self):
         wildcard = WildcardRecord(
@@ -373,7 +516,7 @@ class PromptCatalogPromptTests(unittest.TestCase):
 
     def test_lists_nested_prompt_tree_and_detail(self):
         with tempfile.TemporaryDirectory() as temp_dir:
-            self._write(temp_dir, "portraits/soft-lighting.txt", "1girl, __body/hair/color__\n")
+            self._write(temp_dir, "portraits/soft-lighting.txt", "1girl, __appearance/hair/color__\n")
             with patch.object(prompt_catalog, "PROMPTS_DIR", temp_dir):
                 tree = prompt_catalog.list_prompts()["tree"]
                 detail = prompt_catalog.get_prompt_detail("portraits/soft-lighting")
@@ -383,7 +526,7 @@ class PromptCatalogPromptTests(unittest.TestCase):
         self.assertEqual(portraits["label"], "portraits")
         self.assertEqual(prompt["id"], "portraits/soft-lighting")
         self.assertEqual(prompt["label"], "soft-lighting")
-        self.assertEqual(detail["insertText"], "1girl, __body/hair/color__\n")
+        self.assertEqual(detail["insertText"], "1girl, __appearance/hair/color__\n")
 
     def test_search_prompts_matches_id_and_text(self):
         with tempfile.TemporaryDirectory() as temp_dir:

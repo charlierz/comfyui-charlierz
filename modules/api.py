@@ -148,7 +148,7 @@ def _read_character_tag_groups(character: str) -> dict[str, object]:
     uncategorized: list[str] = []
 
     for tag in character_tags:
-        category = category_index.get(tag)
+        category = category_index.get(normalize_tag(tag))
         if category is None:
             uncategorized.append(tag)
         else:
