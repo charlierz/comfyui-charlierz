@@ -79,12 +79,14 @@ Saved prompts are editable through the Prompt Catalog `Prompts` tab and stored a
 data/prompts/portraits/soft_lighting.txt -> portraits/soft_lighting
 ```
 
-The prompt editor supports tag/wildcard autocomplete, click-to-preview for wildcard references, create/save/save-as/rename/delete actions, `New From Current`, and direct expansion preview. Saved prompts are inserted as text snippets; they are not referenced at processing time.
+The prompt editor supports tag/wildcard autocomplete, click-to-preview for wildcard references, create/save/save-as/rename/delete actions, `New From Current`, and direct expansion preview. Saved `.txt` prompts are inserted as text snippets; category-aware `.json` prompts saved from `Prompt Helper` preserve per-category text and insert back into matching Prompt Helper fields. Prompts are not referenced at processing time.
 
-Wildcard pools are backed by curated tag-pool TSVs under `data/tag_pools/**/*.tsv`. Each pool row is a prompt tag; the optional `count` column powers weighted sampling. Wildcard IDs are path-based, case-insensitive, and normalize spaces to underscores. For example:
+Wildcard pools are backed by curated tag-pool TSVs under `data/tag_pools/**/*.tsv`. Entity registries also expose virtual wildcards: `__characters__` samples a character and its primary inferred franchise as `franchise, character`, while `__franchises__` samples a franchise. The optional `count` column powers weighted sampling. Wildcard IDs are path-based, case-insensitive, and normalize spaces to underscores. For example:
 
 ```text
 data/tag_pools/body/hair/color.tsv -> __body/hair/color__
+data/tag_entities/characters.tsv -> __characters__
+data/tag_entities/franchises.tsv -> __franchises__
 ```
 
 Supported syntax:

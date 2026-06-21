@@ -112,11 +112,12 @@ export async function searchPrompts({ query, limit = 80 }) {
   return response.json();
 }
 
-export async function savePrompt({ id, text, overwrite = false }) {
+export async function savePrompt({ id, text, categories = null, overwrite = false }) {
+  const body = categories ? { id, text, categories, overwrite } : { id, text, overwrite };
   const response = await fetch("/charlierz-prompt-catalog/prompt", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ id, text, overwrite }),
+    body: JSON.stringify(body),
   });
   const result = await response.json();
   if (!response.ok) {

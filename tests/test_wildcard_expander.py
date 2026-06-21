@@ -17,6 +17,11 @@ class WildcardExpanderNodeTests(unittest.TestCase):
     def tearDown(self):
         prompt_catalog.clear_prompt_catalog_caches()
 
+    def test_input_order_matches_expand_signature_to_preserve_saved_widget_values(self):
+        required = WildcardExpander.INPUT_TYPES()["required"]
+
+        self.assertEqual(list(required), ["wildcard_text", "weight_mode", "seed"])
+
     def test_expands_wildcard_text(self):
         with tempfile.TemporaryDirectory() as temp_dir, patch.object(
             prompt_catalog, "WILDCARDS_DIR", temp_dir
@@ -25,13 +30,13 @@ class WildcardExpanderNodeTests(unittest.TestCase):
             with open(os.path.join(temp_dir, "color", "basic.txt"), "w", encoding="utf-8") as f:
                 f.write("red\n")
 
-            result = WildcardExpander().expand("__color/basic__ dress", 0, "count")
+            result = WildcardExpander().expand("__color/basic__ dress", "count", 0)
 
         self.assertEqual(result["result"], ("red dress",))
         self.assertEqual(result["ui"], {"last_seed": [0]})
 
     def test_invalid_weight_mode_falls_back_to_sqrt(self):
-        result = WildcardExpander().expand("plain text", 0, "invalid")
+        result = WildcardExpander().expand("plain text", "invalid", 0)
         self.assertEqual(result["result"], ("plain text",))
 
     def test_expands_structured_prompt_json_and_preserves_json(self):
@@ -44,8 +49,8 @@ class WildcardExpanderNodeTests(unittest.TestCase):
 
             result = WildcardExpander().expand(
                 '{"style": "anime", "clothes": "__color/basic__ dress"}',
-                0,
                 "count",
+                0,
             )
 
         self.assertEqual(

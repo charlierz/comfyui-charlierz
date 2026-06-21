@@ -1,7 +1,7 @@
 {
   "categories": [
     {"id": "style", "sources": ["tag_pools/style"]},
-    {"id": "theme", "sources": ["tag_entities/characters", "tag_entities/franchises"]},
+    {"id": "theme", "sources": ["tag_pools/theme", "tag_entities/characters", "tag_entities/franchises"]},
     {"id": "body", "sources": ["tag_pools/body"]},
     {"id": "clothes", "sources": ["tag_pools/clothes", "tag_pools/visual"]},
     {"id": "pose", "sources": ["tag_pools/pose"]},

@@ -387,9 +387,17 @@ async def post_prompt_catalog_prompt(request):
 
     prompt_id = str(payload.get("id", ""))
     text = str(payload.get("text", ""))
+    categories = payload.get("categories")
     overwrite = bool(payload.get("overwrite", False))
     try:
-        return web.json_response(save_prompt(prompt_id, text, overwrite=overwrite))
+        return web.json_response(
+            save_prompt(
+                prompt_id,
+                text,
+                overwrite=overwrite,
+                categories=categories if isinstance(categories, dict) else None,
+            )
+        )
     except FileExistsError as e:
         return web.json_response({"error": str(e)}, status=409)
     except ValueError as e:

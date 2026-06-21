@@ -30,7 +30,7 @@ class WildcardExpander:
     FUNCTION = "expand"
     CATEGORY = "charlierz/Prompt"
 
-    def expand(self, wildcard_text: str, seed: int, weight_mode: str = "sqrt"):
+    def expand(self, wildcard_text: str, weight_mode: str = "sqrt", seed: int = 0):
         if weight_mode not in WEIGHT_MODES:
             weight_mode = "sqrt"
         seed = int(seed or 0)

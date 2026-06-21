@@ -33,7 +33,7 @@ data/tag_pools/          # curated prompt pools; sampling and same-pool sibling 
   **/*.tsv              # tag<TAB>count
 
 data/tag_entities/       # generated entity registries; autocomplete/ranking only
-  characters.tsv        # tag<TAB>count
+  characters.tsv        # tag<TAB>count<TAB>franchises
   franchises.tsv        # tag<TAB>count
 
 data/tag_relationships/  # generated relationship overlays; gitignored, no counts

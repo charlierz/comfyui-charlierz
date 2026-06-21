@@ -32,7 +32,7 @@ class WildcardProcessor:
     FUNCTION = "process"
     CATEGORY = "charlierz/Prompt"
 
-    def process(self, wildcard_text: str, preview_text: str, frozen: bool, seed: int, weight_mode: str = "sqrt"):
+    def process(self, wildcard_text: str, preview_text: str, weight_mode: str = "sqrt", frozen: bool = False, seed: int = 0):
         if frozen:
             if not preview_text:
                 print("[charlierz wildcard] frozen selected with empty preview_text")

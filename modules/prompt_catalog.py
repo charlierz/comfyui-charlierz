@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import csv
 import json
 import math
 import os
@@ -17,6 +18,7 @@ from .tag_data import (
     clear_prompt_category_cache,
     display_tag,
     normalize_tag,
+    prompt_category_ids,
     prompt_category_source_map,
     read_tag_pool_tsv,
     tag_pool_category_map,
@@ -62,6 +64,7 @@ class PromptRecord:
     path: str
     label: str
     text: str
+    categories: dict[str, str] | None = None
 
 
 @dataclass
@@ -166,6 +169,43 @@ def scan_wildcards() -> tuple[list[WildcardRecord], list[str]]:
                         metadata=_read_wildcard_metadata(path),
                     )
                 )
+
+    entity_wildcards = (
+        (
+            "characters",
+            CHARACTERS_ENTITIES_FILE,
+            _read_character_entity_wildcard_tags,
+            "characters",
+        ),
+        (
+            "franchises",
+            FRANCHISES_FILE,
+            _read_entity_wildcard_tags,
+            "copyrights",
+        ),
+    )
+    for wildcard_id, path, reader, prompt_category in entity_wildcards:
+        if not os.path.exists(path):
+            continue
+        if wildcard_id in seen_paths_by_id:
+            diagnostics.append(
+                f"Duplicate wildcard id {wildcard_id}: {seen_paths_by_id[wildcard_id]} wins over entity file {os.path.relpath(path, DATA_DIR)}"
+            )
+            continue
+        seen_paths_by_id[wildcard_id] = os.path.relpath(path, DATA_DIR)
+        records.append(
+            WildcardRecord(
+                id=wildcard_id,
+                path=os.path.relpath(path, DATA_DIR),
+                label=display_wildcard_label(wildcard_id),
+                tags=tuple(reader(path)),
+                metadata={
+                    "displayName": display_wildcard_label(wildcard_id),
+                    "sourceType": "tag_entity",
+                    "promptCategory": _category_for_source(f"tag_entities/{wildcard_id}") or prompt_category,
+                },
+            )
+        )
 
     if os.path.isdir(TAG_POOLS_DIR):
         directory_tags: dict[str, list[WildcardTag]] = {}
@@ -314,7 +354,7 @@ def scan_prompts() -> tuple[list[PromptRecord], list[str]]:
 
     for root, _dirs, files in os.walk(PROMPTS_DIR):
         for filename in sorted(files):
-            if not filename.endswith(".txt"):
+            if not filename.endswith((".txt", ".json")):
                 continue
 
             path = os.path.join(root, filename)
@@ -330,9 +370,8 @@ def scan_prompts() -> tuple[list[PromptRecord], list[str]]:
                 continue
 
             try:
-                with open(path, "r", encoding="utf-8", errors="replace") as f:
-                    text = f.read()
-            except OSError as e:
+                text, categories = _read_prompt_file(path)
+            except (OSError, ValueError) as e:
                 diagnostics.append(f"Failed to read prompt {rel_path}: {e}")
                 continue
 
@@ -343,6 +382,7 @@ def scan_prompts() -> tuple[list[PromptRecord], list[str]]:
                     path=rel_path.replace(os.sep, "/"),
                     label=display_wildcard_label(prompt_id),
                     text=text,
+                    categories=categories,
                 )
             )
 
@@ -406,16 +446,34 @@ def search_prompts(query: str, *, limit: int = 80) -> dict[str, Any]:
     }
 
 
-def save_prompt(prompt_id: str, text: str, *, overwrite: bool = False) -> dict[str, Any]:
+def save_prompt(
+    prompt_id: str,
+    text: str,
+    *,
+    overwrite: bool = False,
+    categories: dict[str, str] | None = None,
+) -> dict[str, Any]:
     normalized_id = normalize_prompt_id(prompt_id)
-    normalized_text = _normalize_prompt_text(text)
-    path = _prompt_path(normalized_id)
-    if os.path.exists(path) and not overwrite:
+    normalized_categories = _normalize_prompt_categories(categories) if categories is not None else None
+    normalized_text = (
+        _render_prompt_categories(normalized_categories)
+        if normalized_categories is not None
+        else _normalize_prompt_text(text)
+    )
+    path = _prompt_path(normalized_id, structured=normalized_categories is not None)
+    existing_paths = _existing_prompt_paths(normalized_id)
+    if existing_paths and not overwrite:
         raise FileExistsError(f"Prompt already exists: {normalized_id}")
 
     os.makedirs(os.path.dirname(path), exist_ok=True)
-    with open(path, "w", encoding="utf-8") as f:
-        f.write(normalized_text)
+    for existing_path in existing_paths:
+        if existing_path != path:
+            os.remove(existing_path)
+    if normalized_categories is not None:
+        _write_structured_prompt(path, normalized_categories)
+    else:
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(normalized_text)
     _clear_prompt_caches()
     return get_prompt_detail(normalized_id)
 
@@ -423,16 +481,20 @@ def save_prompt(prompt_id: str, text: str, *, overwrite: bool = False) -> dict[s
 def rename_prompt(prompt_id: str, new_id: str, *, overwrite: bool = False) -> dict[str, Any]:
     old_id = normalize_prompt_id(prompt_id)
     normalized_new_id = normalize_prompt_id(new_id)
-    old_path = _prompt_path(old_id)
-    new_path = _prompt_path(normalized_new_id)
-    if not os.path.exists(old_path):
+    old_path = _single_existing_prompt_path(old_id)
+    if old_path is None:
         raise ValueError(f"Unknown prompt: {old_id}")
-    if os.path.exists(new_path) and not overwrite:
+    new_path = _prompt_path(normalized_new_id, structured=old_path.endswith(".json"))
+    existing_new_paths = _existing_prompt_paths(normalized_new_id)
+    if existing_new_paths and old_path not in existing_new_paths and not overwrite:
         raise FileExistsError(f"Prompt already exists: {normalized_new_id}")
     if old_path == new_path:
         return get_prompt_detail(old_id)
 
     os.makedirs(os.path.dirname(new_path), exist_ok=True)
+    for existing_path in existing_new_paths:
+        if existing_path != old_path:
+            os.remove(existing_path)
     os.replace(old_path, new_path)
     _remove_empty_parent_dirs(os.path.dirname(old_path))
     _clear_prompt_caches()
@@ -441,11 +503,12 @@ def rename_prompt(prompt_id: str, new_id: str, *, overwrite: bool = False) -> di
 
 def delete_prompt(prompt_id: str) -> dict[str, Any]:
     normalized_id = normalize_prompt_id(prompt_id)
-    path = _prompt_path(normalized_id)
-    if not os.path.exists(path):
+    paths = _existing_prompt_paths(normalized_id)
+    if not paths:
         raise ValueError(f"Unknown prompt: {normalized_id}")
-    os.remove(path)
-    _remove_empty_parent_dirs(os.path.dirname(path))
+    for path in paths:
+        os.remove(path)
+        _remove_empty_parent_dirs(os.path.dirname(path))
     _clear_prompt_caches()
     return {"deleted": True, "id": normalized_id}
 
@@ -466,14 +529,18 @@ def normalize_prompt_id(value: str) -> str:
 
 
 def _prompt_summary(record: PromptRecord) -> dict[str, Any]:
-    return {
+    summary = {
         "type": "prompt",
         "id": record.id,
         "label": record.label,
         "insertText": record.text,
         "path": record.path,
         "preview": _prompt_preview(record.text),
+        "structured": record.categories is not None,
     }
+    if record.categories is not None:
+        summary["categories"] = record.categories
+    return summary
 
 
 def _prompt_match_tier(prompt: PromptRecord, normalized_query: str, text_query: str) -> int | None:
@@ -518,13 +585,62 @@ def _normalize_prompt_text(text: str) -> str:
     return f"{normalized}\n"
 
 
-def _prompt_path(prompt_id: str) -> str:
+def _read_prompt_file(path: str) -> tuple[str, dict[str, str] | None]:
+    if path.endswith(".json"):
+        with open(path, "r", encoding="utf-8", errors="replace") as f:
+            payload = json.load(f)
+        if not isinstance(payload, dict):
+            raise ValueError("Structured prompt must be a JSON object")
+        categories = _normalize_prompt_categories(payload.get("categories"))
+        return (_render_prompt_categories(categories), categories)
+
+    with open(path, "r", encoding="utf-8", errors="replace") as f:
+        return (f.read(), None)
+
+
+def _normalize_prompt_categories(value: object) -> dict[str, str]:
+    if not isinstance(value, dict):
+        raise ValueError("Prompt categories must be an object")
+    categories: dict[str, str] = {}
+    for category_id in prompt_category_ids():
+        text = str(value.get(category_id, "")).replace("\r\n", "\n").replace("\r", "\n").strip()
+        categories[category_id] = text
+    if not any(categories.values()):
+        raise ValueError("Prompt categories are empty")
+    return categories
+
+
+def _render_prompt_categories(categories: dict[str, str]) -> str:
+    rendered = "\n\n".join(text for text in categories.values() if text.strip()).strip()
+    if not rendered:
+        raise ValueError("Prompt text is empty")
+    return f"{rendered}\n"
+
+
+def _write_structured_prompt(path: str, categories: dict[str, str]) -> None:
+    payload = {"type": "prompt_helper", "version": 1, "categories": categories}
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(payload, f, ensure_ascii=False, indent=2)
+        f.write("\n")
+
+
+def _prompt_path(prompt_id: str, *, structured: bool = False) -> str:
     normalized_id = normalize_prompt_id(prompt_id)
     root = os.path.abspath(PROMPTS_DIR)
-    path = os.path.abspath(os.path.join(root, *normalized_id.split("/"))) + ".txt"
+    suffix = ".json" if structured else ".txt"
+    path = os.path.abspath(os.path.join(root, *normalized_id.split("/"))) + suffix
     if os.path.commonpath([root, path]) != root:
         raise ValueError("Prompt path escapes prompt directory")
     return path
+
+
+def _existing_prompt_paths(prompt_id: str) -> list[str]:
+    return [path for path in (_prompt_path(prompt_id), _prompt_path(prompt_id, structured=True)) if os.path.exists(path)]
+
+
+def _single_existing_prompt_path(prompt_id: str) -> str | None:
+    paths = _existing_prompt_paths(prompt_id)
+    return paths[0] if paths else None
 
 
 def _remove_empty_parent_dirs(path: str) -> None:
@@ -736,6 +852,45 @@ def _read_tag_pool_wildcard_tags(path: str) -> list[WildcardTag]:
         weight = float(count) if count > 0 else 1.0
         tags.append(WildcardTag(text=display_tag(tag), weight=weight, line_number=index))
     return tags
+
+
+def _read_entity_wildcard_tags(path: str) -> list[WildcardTag]:
+    tags: list[WildcardTag] = []
+    with open(path, newline="", encoding="utf-8", errors="replace") as f:
+        for line_number, row in enumerate(csv.DictReader(f, delimiter="\t"), start=2):
+            tag = (row.get("tag") or "").strip()
+            if not tag:
+                continue
+            count = _parse_int(row.get("count"), default=0)
+            weight = float(count) if count > 0 else 1.0
+            tags.append(WildcardTag(text=display_tag(tag), weight=weight, line_number=line_number))
+    return tags
+
+
+def _read_character_entity_wildcard_tags(path: str) -> list[WildcardTag]:
+    tags: list[WildcardTag] = []
+    with open(path, newline="", encoding="utf-8", errors="replace") as f:
+        for line_number, row in enumerate(csv.DictReader(f, delimiter="\t"), start=2):
+            character = (row.get("tag") or "").strip()
+            if not character:
+                continue
+            count = _parse_int(row.get("count"), default=0)
+            weight = float(count) if count > 0 else 1.0
+            franchise = _primary_franchise(row.get("franchises") or "")
+            text = f"{display_tag(franchise)}, {display_tag(character)}" if franchise else display_tag(character)
+            tags.append(WildcardTag(text=text, weight=weight, line_number=line_number))
+    return tags
+
+
+def _primary_franchise(franchises: str) -> str:
+    return franchises.split(",", 1)[0].strip()
+
+
+def _parse_int(value: object, *, default: int) -> int:
+    try:
+        return int(str(value).strip())
+    except (TypeError, ValueError):
+        return default
 
 
 def _read_wildcard_metadata(path: str) -> dict[str, Any]:
@@ -1007,7 +1162,7 @@ def _variant_option(text: str) -> WildcardTag:
 
 
 def _expansion_tags(record: WildcardRecord, weight_mode: WeightMode) -> list[WildcardTag]:
-    if record.metadata.get("sourceType") != "tag_pool":
+    if record.metadata.get("sourceType") not in {"tag_pool", "tag_entity"}:
         return list(record.tags)
     return [
         WildcardTag(

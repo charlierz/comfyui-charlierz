@@ -84,6 +84,12 @@ function setWidgetValue(node, name, value) {
   return true;
 }
 
+function addActionButton(node, label, callback) {
+  const widget = node.addWidget("button", label, null, callback);
+  widget.serialize = false;
+  return widget;
+}
+
 function commaSeparatedInsertion(current, start, end, text) {
   const before = current.slice(0, start);
   const after = current.slice(end);
@@ -137,6 +143,25 @@ function getPromptHelperText(node) {
     .map((category) => String(getWidgetValue(node, category.id) ?? "").trim())
     .filter(Boolean)
     .join("\n\n");
+}
+
+function getPromptHelperCategories(node) {
+  return Object.fromEntries(
+    promptCategories.map((category) => [
+      category.id,
+      String(getWidgetValue(node, category.id) ?? "").trim(),
+    ]),
+  );
+}
+
+function clearPromptHelper(node) {
+  if (!isPromptHelperNode(node)) return false;
+  let changed = false;
+  for (const category of promptCategories) {
+    if (String(getWidgetValue(node, category.id) ?? "") === "") continue;
+    changed = setWidgetValue(node, category.id, "") || changed;
+  }
+  return changed;
 }
 
 function attachWildcardProcessorPreview(element) {
@@ -216,6 +241,20 @@ function filterNewPromptHelperTags(node, category, tags) {
     accepted.push(tag);
   }
   return accepted;
+}
+
+function appendPromptCategories(node, categories) {
+  let inserted = false;
+  for (const [category, text] of Object.entries(categories ?? {})) {
+    if (!promptCategoryIds.has(category) || !String(text).trim()) continue;
+    inserted =
+      insertIntoPromptHelper(node, text, {
+        mode: "block",
+        category,
+        forceFocused: false,
+      }) || inserted;
+  }
+  return inserted;
 }
 
 function appendDecomposedPrompt(
@@ -650,6 +689,7 @@ class WildcardBrowser {
     });
     this.promptEditor.addEventListener("input", () => {
       this.promptDirty = this.promptEditor.value !== this.promptLoadedText;
+      if (this.promptDirty) this.promptCategoriesValue = null;
     });
     this.promptActions.addEventListener("click", async (event) => {
       const button = event.target.closest("[data-prompt-action]");
@@ -716,6 +756,7 @@ class WildcardBrowser {
     this.promptDirty = false;
     this.promptLoadedText = "";
     this.promptSelected = null;
+    this.promptCategoriesValue = null;
     this.search.value = "";
     this.updateTabUi();
     this.loadTree();
@@ -850,6 +891,7 @@ class WildcardBrowser {
       this.promptEditor.value = "";
       this.promptLoadedText = "";
       this.promptDirty = false;
+      this.promptCategoriesValue = null;
       this.promptPreview.textContent = "Preview output appears here.";
       this.promptEditor.focus();
       return;
@@ -860,6 +902,9 @@ class WildcardBrowser {
       this.promptSelected = null;
       this.selected = null;
       this.promptIdInput.value = "";
+      this.promptCategoriesValue = isPromptHelperNode(this.node)
+        ? getPromptHelperCategories(this.node)
+        : null;
       this.promptEditor.value = isPromptHelperNode(this.node)
         ? getPromptHelperText(this.node)
         : getWidgetValue(this.node, "wildcard_text");
@@ -873,16 +918,18 @@ class WildcardBrowser {
       if (!this.promptEditor.value.trim())
         throw new Error("Prompt text is empty");
       const inserted =
-        isPromptHelperNode(this.node) && this.decomposePromptInput.checked
-          ? appendDecomposedPrompt(
-              this.node,
-              await decomposePromptText(this.promptEditor.value),
-              { focusedText: this.promptEditor.value },
-            )
-          : this.insertText(this.promptEditor.value, {
-              mode: "block",
-              forceFocused: true,
-            });
+        isPromptHelperNode(this.node) && this.promptCategoriesValue
+          ? appendPromptCategories(this.node, this.promptCategoriesValue)
+          : isPromptHelperNode(this.node) && this.decomposePromptInput.checked
+            ? appendDecomposedPrompt(
+                this.node,
+                await decomposePromptText(this.promptEditor.value),
+                { focusedText: this.promptEditor.value },
+              )
+            : this.insertText(this.promptEditor.value, {
+                mode: "block",
+                forceFocused: true,
+              });
       if (inserted) flashInserted(button);
       return;
     }
@@ -920,6 +967,7 @@ class WildcardBrowser {
       this.promptEditor.value = "";
       this.promptLoadedText = "";
       this.promptDirty = false;
+      this.promptCategoriesValue = null;
       await this.loadTree();
       return;
     }
@@ -957,6 +1005,7 @@ class WildcardBrowser {
         saved = await savePrompt({
           id,
           text: this.promptEditor.value,
+          categories: this.promptCategoriesValue,
           overwrite: action === "save" && this.promptSelected?.id === id,
         });
       } catch (error) {
@@ -968,6 +1017,7 @@ class WildcardBrowser {
         saved = await savePrompt({
           id,
           text: this.promptEditor.value,
+          categories: this.promptCategoriesValue,
           overwrite: true,
         });
       }
@@ -983,6 +1033,7 @@ class WildcardBrowser {
     this.promptEditor.value = detail.text ?? "";
     this.promptLoadedText = this.promptEditor.value;
     this.promptDirty = false;
+    this.promptCategoriesValue = detail.categories ?? null;
     this.promptPreview.textContent =
       detail.preview || "Preview output appears here.";
   }
@@ -1224,17 +1275,19 @@ class WildcardBrowser {
     if (!this.node || !item) return false;
     const text = item.insertText ?? item.label ?? "";
     const inserted =
-      isPromptHelperNode(this.node) &&
-      item.type === "prompt" &&
-      this.decomposePromptInput.checked
-        ? appendDecomposedPrompt(this.node, await decomposePromptText(text), {
-            focusedText: text,
-          })
-        : this.insertText(text, {
-            mode: item.type === "prompt" ? "block" : "comma",
-            category: item.promptCategory ?? item.category ?? null,
-            forceFocused: item.type === "prompt",
-          });
+      isPromptHelperNode(this.node) && item.type === "prompt" && item.categories
+        ? appendPromptCategories(this.node, item.categories)
+        : isPromptHelperNode(this.node) &&
+            item.type === "prompt" &&
+            this.decomposePromptInput.checked
+          ? appendDecomposedPrompt(this.node, await decomposePromptText(text), {
+              focusedText: text,
+            })
+          : this.insertText(text, {
+              mode: item.type === "prompt" ? "block" : "comma",
+              category: item.promptCategory ?? item.category ?? null,
+              forceFocused: item.type === "prompt",
+            });
     if (inserted && close) this.hide();
     return inserted;
   }
@@ -1312,8 +1365,13 @@ app.registerExtension({
       const originalOnNodeCreated = nodeType.prototype.onNodeCreated;
       nodeType.prototype.onNodeCreated = function () {
         originalOnNodeCreated?.apply(this, arguments);
-        this.addWidget("button", "Prompt Catalog", null, () => {
+        addActionButton(this, "Prompt Catalog", () => {
           wildcardBrowser.show(this);
+        });
+        addActionButton(this, "Clear Helper", () => {
+          if (!getPromptHelperText(this)) return;
+          if (!confirm("Clear all Prompt Helper categories?")) return;
+          clearPromptHelper(this);
         });
       };
       return;
@@ -1336,7 +1394,7 @@ app.registerExtension({
       const originalOnNodeCreated = nodeType.prototype.onNodeCreated;
       nodeType.prototype.onNodeCreated = function () {
         originalOnNodeCreated?.apply(this, arguments);
-        this.addWidget("button", "Use Last Queued Seed", null, () => {
+        addActionButton(this, "Use Last Queued Seed", () => {
           useLastQueuedWildcardSeed(this);
         });
       };
@@ -1348,13 +1406,13 @@ app.registerExtension({
       const originalOnNodeCreated = nodeType.prototype.onNodeCreated;
       nodeType.prototype.onNodeCreated = function () {
         originalOnNodeCreated?.apply(this, arguments);
-        this.addWidget("button", "Prompt Catalog", null, () => {
+        addActionButton(this, "Prompt Catalog", () => {
           wildcardBrowser.show(this);
         });
-        this.addWidget("button", "Use Last Queued Seed", null, () => {
+        addActionButton(this, "Use Last Queued Seed", () => {
           useLastQueuedWildcardSeed(this);
         });
-        this.addWidget("button", "Preview / Reroll", null, async () => {
+        addActionButton(this, "Preview / Reroll", async () => {
           try {
             await previewWildcardProcessor(this, { reroll: true });
           } catch (error) {
@@ -1371,7 +1429,7 @@ app.registerExtension({
     const originalOnNodeCreated = nodeType.prototype.onNodeCreated;
     nodeType.prototype.onNodeCreated = function () {
       originalOnNodeCreated?.apply(this, arguments);
-      this.addWidget("button", "Reload Models", null, async () => {
+      addActionButton(this, "Reload Models", async () => {
         try {
           await reloadLlamaCppModels(this);
         } catch (error) {
@@ -1379,7 +1437,7 @@ app.registerExtension({
           alert(error.message || String(error));
         }
       });
-      this.addWidget("button", "Unload Model", null, async () => {
+      addActionButton(this, "Unload Model", async () => {
         try {
           await unloadLlamaCppModel(this);
         } catch (error) {

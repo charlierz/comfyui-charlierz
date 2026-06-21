@@ -30,7 +30,7 @@ data/tag_pools/          # curated prompt pools; sampling and same-pool sibling 
   **/*.tsv              # tag<TAB>count
 
 data/tag_entities/       # generated entity registries; autocomplete/ranking only
-  characters.tsv        # tag<TAB>count
+  characters.tsv        # tag<TAB>count<TAB>franchises
   franchises.tsv        # tag<TAB>count
 
 data/tag_relationships/  # generated relationship overlays; gitignored, no counts
@@ -89,9 +89,11 @@ data/tag_entities/characters.tsv
 ```
 
 ```tsv
-tag	count
-hatsune miku	75449
+tag	count	franchises
+hatsune miku	75449	vocaloid
 ```
+
+The `franchises` column is inferred from character/copyright cooccurrence, filtered by `--min-franchise-count` and `--min-franchise-ratio`, capped by `--max-franchises`, and sorted by cooccurrence count. It is a best-effort ownership hint; crossovers with low relative frequency are filtered out.
 
 and a generated relationship overlay:
 

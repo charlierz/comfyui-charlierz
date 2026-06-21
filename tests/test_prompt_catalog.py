@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 import tempfile
 import unittest
@@ -81,6 +82,29 @@ class PromptCatalogExpansionTests(unittest.TestCase):
         self.assertIn(result, {"red hair", "blue hair"})
         self.assertEqual(diagnostics, [])
 
+    def test_expands_character_entity_wildcard_with_primary_franchise(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            empty_wildcards_dir = os.path.join(temp_dir, "wildcards")
+            empty_tag_pools_dir = os.path.join(temp_dir, "tag_pools")
+            characters_path = os.path.join(temp_dir, "characters.tsv")
+            franchises_path = os.path.join(temp_dir, "franchises.tsv")
+            os.makedirs(empty_wildcards_dir)
+            os.makedirs(empty_tag_pools_dir)
+            self._write(temp_dir, "characters.tsv", "tag\tcount\tfranchises\nhatsune miku\t100\tvocaloid, project voltage\n")
+            self._write(temp_dir, "franchises.tsv", "tag\tcount\nvocaloid\t1000\n")
+            with patch.object(prompt_catalog, "WILDCARDS_DIR", empty_wildcards_dir), patch.object(
+                prompt_catalog, "TAG_POOLS_DIR", empty_tag_pools_dir
+            ), patch.object(prompt_catalog, "CHARACTERS_ENTITIES_FILE", characters_path), patch.object(
+                prompt_catalog, "FRANCHISES_FILE", franchises_path
+            ):
+                character_result, character_diagnostics = prompt_catalog.expand_wildcards("__characters__", seed=1)
+                franchise_result, franchise_diagnostics = prompt_catalog.expand_wildcards("__franchises__", seed=1)
+
+        self.assertEqual(character_result, "vocaloid, hatsune miku")
+        self.assertEqual(character_diagnostics, [])
+        self.assertEqual(franchise_result, "vocaloid")
+        self.assertEqual(franchise_diagnostics, [])
+
     def test_globs_tag_pool_virtual_wildcards(self):
         with tempfile.TemporaryDirectory() as temp_dir, tempfile.TemporaryDirectory() as empty_wildcards_dir:
             self._write(temp_dir, "body/hair/color.tsv", "tag\tcount\nred hair\t1\n")
@@ -151,13 +175,18 @@ class WildcardProcessorNodeTests(unittest.TestCase):
     def tearDown(self):
         prompt_catalog.clear_prompt_catalog_caches()
 
+    def test_input_order_matches_process_signature_to_preserve_saved_widget_values(self):
+        required = WildcardProcessor.INPUT_TYPES()["required"]
+
+        self.assertEqual(list(required), ["wildcard_text", "preview_text", "weight_mode", "frozen", "seed"])
+
     def test_node_uses_preview_text_when_frozen(self):
-        result = WildcardProcessor().process("{red|blue}", "frozen output", True, 1)
+        result = WildcardProcessor().process("{red|blue}", "frozen output", "sqrt", True, 1)
 
         self.assertEqual(result, ("frozen output",))
 
     def test_node_generates_when_not_frozen(self):
-        result = WildcardProcessor().process("{red|blue}", "previous preview", False, 1)
+        result = WildcardProcessor().process("{red|blue}", "previous preview", "sqrt", False, 1)
 
         self.assertEqual(result["result"], ("red",))
         self.assertEqual(result["ui"], {"last_seed": [1]})
@@ -389,6 +418,26 @@ class PromptCatalogPromptTests(unittest.TestCase):
             detail = prompt_catalog.get_prompt_detail("portrait")
 
         self.assertEqual(detail["text"], "second\n")
+
+    def test_save_structured_prompt_preserves_categories_as_json(self):
+        with tempfile.TemporaryDirectory() as temp_dir, patch.object(prompt_catalog, "PROMPTS_DIR", temp_dir):
+            detail = prompt_catalog.save_prompt(
+                "portraits/miku",
+                "ignored flat text",
+                categories={"style": "best quality", "theme": "vocaloid, hatsune miku"},
+                overwrite=False,
+            )
+            path = os.path.join(temp_dir, "portraits", "miku.json")
+            with open(path, "r", encoding="utf-8") as f:
+                payload = json.load(f)
+            searched = prompt_catalog.search_prompts("hatsune")
+
+        self.assertTrue(detail["structured"])
+        self.assertEqual(detail["categories"]["style"], "best quality")
+        self.assertEqual(detail["categories"]["theme"], "vocaloid, hatsune miku")
+        self.assertEqual(detail["text"], "best quality\n\nvocaloid, hatsune miku\n")
+        self.assertEqual(payload["type"], "prompt_helper")
+        self.assertEqual(searched["results"][0]["id"], "portraits/miku")
 
     def test_rename_and_delete_prompt_refresh_catalog(self):
         with tempfile.TemporaryDirectory() as temp_dir, patch.object(prompt_catalog, "PROMPTS_DIR", temp_dir):
