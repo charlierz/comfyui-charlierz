@@ -1,0 +1,70 @@
+# Curated compatible sexual pose bundles.
+# Format supports optional weights: weight::tag, tag, tag
+# Each line is one coherent pose/archetype. Keep bundles manually curated using co-occurrence as evidence,
+# but avoid adding unrelated scene/state tags just because they co-occur.
+
+3::missionary, sex, vaginal, lying, on back, spread legs
+2::missionary, sex, vaginal, on back, m legs
+2::missionary, sex, vaginal, lying, on back, arms up
+2::mating press, sex, vaginal, on back, legs up
+2::mating press, sex, vaginal, on back, spread legs
+1::standing missionary, standing sex, sex, vaginal, standing
+
+3::doggystyle, sex from behind, sex, vaginal, all fours
+3::doggystyle, sex from behind, sex, vaginal, bent over
+2::doggystyle, sex from behind, vaginal, top-down bottom-up
+2::doggystyle, sex from behind, groping, grabbing another's ass
+2::prone bone, sex from behind, sex, lying, on stomach
+1::prone bone, sex from behind, on stomach, pillow hug
+2::sex from behind, standing sex, standing, bent over
+
+3::cowgirl position, girl on top, sex, vaginal, straddling
+2::cowgirl position, girl on top, vaginal, spread legs, straddling
+2::reverse cowgirl position, girl on top, sex from behind, vaginal, straddling
+2::squatting cowgirl position, girl on top, vaginal, squatting, straddling
+2::upright straddle, girl on top, sitting, straddling
+1::reverse upright straddle, girl on top, sitting, straddling
+1::amazon position, girl on top, sex, vaginal
+
+2::spooning, sex, vaginal, lying, on side
+1::full nelson, sex, vaginal, legs up
+1::suspended congress, standing sex, sex, vaginal
+
+3::fellatio, oral, kneeling
+2::fellatio, oral, licking penis
+2::fellatio, oral, hand on another's head
+2::fellatio, oral, handjob
+2::deepthroat, fellatio, oral
+1::irrumatio, fellatio, oral
+1::cooperative fellatio, fellatio, oral
+
+2::cunnilingus, oral, spread legs, on back
+2::cunnilingus, oral, sitting on face
+1::standing cunnilingus, oral, standing
+1::anilingus, oral, face in ass
+1::69, oral, fellatio, cunnilingus
+
+3::paizuri, breasts squeezed together, breast press
+2::paizuri, lying, on back, breasts squeezed together
+2::paizuri, grabbing another's breast, groping
+1::straddling paizuri, paizuri, straddling
+1::handsfree paizuri, paizuri
+
+3::handjob, penis grab
+2::handjob, sitting, penis grab
+2::handjob, spread legs, penis grab
+1::double handjob, handjob
+1::gloved handjob, handjob
+
+3::female masturbation, masturbation, spread legs
+2::female masturbation, masturbation, lying, on back
+2::female masturbation, masturbation, sitting
+2::fingering, female masturbation, spread legs
+1::fingering, lying, on back, spread legs
+1::masturbation through clothes, female masturbation, sitting
+
+1::thigh sex, standing, groping
+1::thigh sex, sitting, girl on top
+1::footjob, sitting, spread legs
+1::footjob, two-footed footjob
+1::tribadism, lying, spread legs, on back
