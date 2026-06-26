@@ -602,9 +602,24 @@ export class PromptHelperAutocomplete {
       textarea,
       config.source === "general" ? null : config.source.replaceAll("_", " "),
       matches,
-      getExistingTags(textarea),
+      this.#getExistingTagsForConfig(textarea, config),
       (item) => this.#insertAutocompleteItem(textarea, item, config),
     );
+  }
+
+  #getExistingTagsForConfig(textarea, config) {
+    const nodeTextareas = config?.node
+      ? this.nodeTextareas.get(config.node)
+      : null;
+    if (!nodeTextareas) return getExistingTags(textarea);
+
+    return [
+      ...new Set(
+        [...nodeTextareas.values()].flatMap((nodeTextarea) =>
+          getExistingTags(nodeTextarea),
+        ),
+      ),
+    ];
   }
 
   #handleKeyDown(event) {
@@ -731,7 +746,7 @@ export class PromptHelperAutocomplete {
       textarea,
       formatRelatedTitle(tag, category, relatedDetail.categories ?? []),
       relatedTags,
-      getExistingTags(textarea),
+      this.#getExistingTagsForConfig(textarea, this.textareaConfig.get(textarea)),
       (relatedTag) => this.#insertRelatedTag(node, textarea, relatedTag),
       tag,
     );

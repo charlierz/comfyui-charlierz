@@ -1194,9 +1194,6 @@ def _wildcard_match(
     ):
         return (6, 0)
 
-    if category and _wildcard_matches_category(wildcard, category):
-        return (7, 0)
-
     return None
 
 

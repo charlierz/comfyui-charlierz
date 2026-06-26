@@ -510,6 +510,34 @@ class PromptCatalogSearchTests(unittest.TestCase):
 
         self.assertEqual(results[0]["insertText"], "__appearance/hair/color__")
 
+    def test_wildcard_search_does_not_match_by_category_only(self):
+        wildcards = [
+            WildcardRecord(
+                id="pose/hands",
+                path="tag_pools/pose/hands.tsv",
+                label="hands",
+                tags=(),
+                metadata={"promptCategory": "pose"},
+            ),
+            WildcardRecord(
+                id="pose/gesture",
+                path="tag_pools/pose/gesture.tsv",
+                label="gesture",
+                tags=(),
+                metadata={"promptCategory": "pose"},
+            ),
+        ]
+        with patch.object(prompt_catalog, "read_tag_records", return_value=[]), patch.object(
+            prompt_catalog, "scan_wildcards", return_value=(wildcards, [])
+        ):
+            results = prompt_catalog.search_catalog(
+                "xyz",
+                context="wildcard",
+                category="pose",
+                types={"wildcard"},
+            )["results"]
+
+        self.assertEqual(results, [])
 
 
 class PromptCatalogPromptTests(unittest.TestCase):
