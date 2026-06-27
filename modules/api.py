@@ -33,6 +33,7 @@ from .tag_data import (
     prompt_category_source_map,
     read_tag_pool_tsv,
     read_tsv_keys,
+    strip_prompt_weight,
     tag_pool_category_map,
 )
 
@@ -137,8 +138,18 @@ def _get_related_methods() -> list[str]:
     return sorted(methods)
 
 
+def _normalize_prompt_tag(tag: str) -> str:
+    """Normalize a tag supplied by the user (prompt text or UI click).
+
+    Unlike :func:`normalize_tag`, this first strips prompt emphasis/weight
+    syntax so weighted tags such as ``(blue hair:1.3)`` resolve to the same
+    canonical key as ``blue hair``.
+    """
+    return normalize_tag(strip_prompt_weight(tag))
+
+
 def _read_character_tag_groups(character: str) -> dict[str, object]:
-    character = normalize_tag(character)
+    character = _normalize_prompt_tag(character)
     character_tags = _read_character_tags().get(character)
     if character_tags is None:
         raise ValueError(f"Unknown character: {character}")
@@ -191,11 +202,11 @@ def _read_related_index(method: str) -> dict[str, list[str]]:
 
 def _read_related(method: str, category: str, tag: str) -> list[str]:
     del category  # Route compatibility; related files are currently method-wide.
-    return _read_related_index(method).get(normalize_tag(tag), [])
+    return _read_related_index(method).get(_normalize_prompt_tag(tag), [])
 
 
 def _read_related_detail(method: str, category: str, tag: str) -> dict[str, object]:
-    normalized_tag = normalize_tag(tag)
+    normalized_tag = _normalize_prompt_tag(tag)
     category_index = _read_tag_categories_index()
     return {
         "tag": normalized_tag,
@@ -232,7 +243,7 @@ def _decompose_prompt_text(text: str) -> dict[str, object]:
     for tag in _split_tags(text):
         category = _category_for_wildcard_token(tag)
         if category is None:
-            category = (category_index.get(normalize_tag(tag)) or [None])[0]
+            category = (category_index.get(_normalize_prompt_tag(tag)) or [None])[0]
 
         if category is None:
             uncategorized.append(tag)

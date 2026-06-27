@@ -90,6 +90,73 @@ class ApiCacheTests(unittest.TestCase):
         self.assertEqual(result["uncategorized"], [])
 
 
+class PromptWeightParsingTests(unittest.TestCase):
+    """Weighted tags (prompt emphasis parens) must resolve to their canonical tag."""
+
+    def setUp(self):
+        api.clear_api_caches()
+
+    def tearDown(self):
+        api.clear_api_caches()
+
+    def _write_pools(self, root: str) -> None:
+        os.makedirs(os.path.join(root, "appearance", "hair"), exist_ok=True)
+        os.makedirs(os.path.join(root, "clothes", "accessory"), exist_ok=True)
+        with open(os.path.join(root, "appearance", "hair", "color.tsv"), "w", encoding="utf-8") as f:
+            f.write("tag\tcount\nblue hair\t100\n")
+        with open(os.path.join(root, "clothes", "accessory", "gem.tsv"), "w", encoding="utf-8") as f:
+            f.write("tag\tcount\npearl (gemstone)\t50\n")
+
+    def _write_related(self, root: str) -> None:
+        with open(os.path.join(root, "related_tags_jaccard.tsv"), "w", encoding="utf-8") as f:
+            f.write("tag\trelated\n")
+            f.write("blue hair\tlong hair, smile\n")
+            f.write("pearl (gemstone)\tgem, pearl necklace\n")
+
+    def test_decompose_categorizes_weighted_tags(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = os.path.join(temp_dir, "tag_pools")
+            self._write_pools(root)
+            with patch.object(api, "TAG_POOLS_DIR", root):
+                result = api._decompose_prompt_text(
+                    "(blue hair:1.3), ((blue hair)), pearl (gemstone), (pearl (gemstone))"
+                )
+
+        self.assertEqual(
+            result["categories"].get("appearance"),
+            ["(blue hair:1.3)", "((blue hair))"],
+        )
+        self.assertEqual(
+            result["categories"].get("clothes"),
+            ["pearl (gemstone)", "(pearl (gemstone))"],
+        )
+        self.assertEqual(result["uncategorized"], [])
+
+    def test_related_lookup_resolves_weighted_tag(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            pools_root = os.path.join(temp_dir, "tag_pools")
+            self._write_pools(pools_root)
+            relationships_dir = os.path.join(temp_dir, "tag_relationships")
+            os.makedirs(relationships_dir)
+            self._write_related(relationships_dir)
+
+            with patch.object(api, "TAG_POOLS_DIR", pools_root), patch.object(
+                api, "TAG_RELATIONSHIPS_DIR", relationships_dir
+            ), patch.object(
+                api, "RELATED_METHOD_FILES", {"jaccard": "related_tags_jaccard.tsv"}
+            ):
+                weighted = api._read_related("jaccard", "appearance", "(blue hair:1.3)")
+                nested = api._read_related("jaccard", "appearance", "((blue hair))")
+                name_paren = api._read_related("jaccard", "clothes", "(pearl (gemstone))")
+                detail = api._read_related_detail("jaccard", "appearance", "(blue hair:1.3)")
+
+        self.assertEqual(weighted, ["long hair", "smile"])
+        self.assertEqual(nested, ["long hair", "smile"])
+        self.assertEqual(name_paren, ["gem", "pearl necklace"])
+        self.assertEqual(detail["tag"], "blue_hair")
+        self.assertEqual(detail["related"][0]["tag"], "long hair")
+
+
 
 class PromptCatalogApiTests(unittest.TestCase):
     def setUp(self):

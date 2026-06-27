@@ -84,6 +84,20 @@ class PromptCatalogExpansionTests(unittest.TestCase):
         self.assertIn(result, {"red hair", "blue hair"})
         self.assertEqual(diagnostics, [])
 
+    def test_score_quality_tags_preserve_underscores(self):
+        with tempfile.TemporaryDirectory() as temp_dir, tempfile.TemporaryDirectory() as empty_wildcards_dir:
+            self._write(temp_dir, "style/quality.tsv", "tag\tcount\nscore_9\t\nscore_8_up\t\n")
+            with patch.object(prompt_catalog, "TAG_POOLS_DIR", temp_dir), patch.object(
+                prompt_catalog, "WILDCARDS_DIR", empty_wildcards_dir
+            ):
+                result, diagnostics = prompt_catalog.expand_wildcards("__style/quality__", seed=1)
+                tags = {record.label for record in prompt_catalog.read_tag_records()}
+
+        self.assertIn(result, {"score_9", "score_8_up"})
+        self.assertIn("score_9", tags)
+        self.assertIn("score_8_up", tags)
+        self.assertEqual(diagnostics, [])
+
     def test_expands_character_entity_wildcard_with_primary_franchise(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             empty_wildcards_dir = os.path.join(temp_dir, "wildcards")

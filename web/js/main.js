@@ -313,16 +313,19 @@ function appendDecomposedPrompt(
       }) || inserted;
   }
 
-  const focusedCategory = getPromptHelperFocusedCategory(node);
+  const uncategorizedCategory = promptCategoryIds.has("scene")
+    ? "scene"
+    : getPromptHelperFocusedCategory(node);
   const uncategorized = filterNewPromptHelperTags(
     node,
-    focusedCategory,
+    uncategorizedCategory,
     decomposition.uncategorized ?? [],
   );
   if (uncategorized.length) {
     inserted =
       insertIntoPromptHelper(node, uncategorized.join(", "), {
-        forceFocused: true,
+        category: uncategorizedCategory,
+        forceFocused: false,
       }) || inserted;
   }
   return inserted;
@@ -983,13 +986,8 @@ class WildcardBrowser {
       : String(getWidgetValue(this.node, "wildcard_text") ?? "").trim();
   }
 
-  clearTarget({ confirmClear = true } = {}) {
+  clearTarget() {
     if (!this.node || !this.getTargetText()) return true;
-    if (
-      confirmClear &&
-      !confirm("Clear current node prompt text? Unsaved node edits will be lost.")
-    )
-      return false;
     return isPromptHelperNode(this.node)
       ? clearPromptHelper(this.node)
       : setWidgetValue(this.node, "wildcard_text", "");
@@ -997,7 +995,7 @@ class WildcardBrowser {
 
   async insertPromptEditorIntoTarget({ replace = false } = {}) {
     if (!this.promptEditor.value.trim()) throw new Error("Prompt text is empty");
-    if (replace && !this.clearTarget({ confirmClear: true })) return false;
+    if (replace && !this.clearTarget()) return false;
     return isPromptHelperNode(this.node) && this.promptCategoriesValue
       ? appendPromptCategories(this.node, this.promptCategoriesValue)
       : isPromptHelperNode(this.node) && this.decomposePromptInput.checked
@@ -1089,17 +1087,13 @@ class WildcardBrowser {
 
     if (action === "newCurrent") {
       if (!this.canDiscardPromptEdits()) return;
-      this.promptSelected = null;
-      this.selected = null;
-      this.promptIdInput.value = "";
       this.promptCategoriesValue = isPromptHelperNode(this.node)
         ? getPromptHelperCategories(this.node)
         : null;
       this.promptEditor.value = isPromptHelperNode(this.node)
         ? getPromptHelperText(this.node)
         : getWidgetValue(this.node, "wildcard_text");
-      this.promptLoadedText = "";
-      this.promptDirty = true;
+      this.promptDirty = this.promptEditor.value !== this.promptLoadedText;
       this.promptEditor.focus();
       return;
     }
@@ -1108,12 +1102,15 @@ class WildcardBrowser {
       const inserted = await this.insertPromptEditorIntoTarget({
         replace: action === "replace",
       });
-      if (inserted) flashInserted(button);
+      if (inserted) {
+        flashInserted(button);
+        this.hide();
+      }
       return;
     }
 
     if (action === "clear") {
-      if (this.clearTarget({ confirmClear: true })) flashInserted(button);
+      if (this.clearTarget()) flashInserted(button);
       return;
     }
 
@@ -1230,11 +1227,14 @@ class WildcardBrowser {
         }
 
         if (child.id && this.activeTab === "prompts") {
-          const index = this.items.push(child) - 1;
-          this.renderResultRow(child, index, parent, {
+          const { children: _children, ...promptItem } = child;
+          promptItem.type = "prompt";
+          const index = this.items.push(promptItem) - 1;
+          this.renderResultRow(promptItem, index, parent, {
             className: "charlierz-wildcard-browser-tree-leaf",
-            label: `${child.label} (prompt)`,
+            label: child.label,
             paddingLeft: 8 + depth * 14,
+            showPath: true,
           });
         }
 
@@ -1302,12 +1302,18 @@ class WildcardBrowser {
     label.textContent = options.label ?? defaultLabel;
     content.appendChild(label);
 
-    if (options.showPath && item.type === "wildcard" && item.id) {
+    const labelText = options.label ?? defaultLabel;
+    const shouldShowPath =
+      options.showPath &&
+      (item.type === "wildcard" || item.type === "prompt") &&
+      item.id &&
+      item.id !== labelText;
+    if (shouldShowPath) {
       const meta = document.createElement("div");
       meta.className = "charlierz-wildcard-browser-result-meta";
       meta.textContent = item.id;
       content.appendChild(meta);
-    } else if (item.type !== "wildcard") {
+    } else if (item.type === "tag") {
       const meta = document.createElement("div");
       meta.className = "charlierz-wildcard-browser-result-meta";
       meta.textContent = item.category ?? item.type;

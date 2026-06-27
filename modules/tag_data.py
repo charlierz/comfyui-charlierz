@@ -16,6 +16,8 @@ CHARACTERS_ENTITIES_FILE = os.path.join(TAG_ENTITIES_DIR, "characters.tsv")
 FRANCHISES_FILE = os.path.join(TAG_ENTITIES_DIR, "franchises.tsv")
 
 PROMPT_CATEGORY_ID_PATTERN = re.compile(r"^[a-z][a-z0-9_]*$")
+_WEIGHT_SUFFIX_PATTERN = re.compile(r":[0-9]+(?:\.[0-9]+)?$")
+_PRESERVE_UNDERSCORE_TAG_PATTERN = re.compile(r"^score_\d+(?:_up)?$")
 ENTITY_SOURCE_FILES = {
     "tag_entities/characters": CHARACTERS_ENTITIES_FILE,
     "tag_entities/franchises": FRANCHISES_FILE,
@@ -111,12 +113,54 @@ def clear_prompt_category_cache() -> None:
     read_prompt_categories.cache_clear()
 
 
+def _is_paren_enclosed(text: str) -> bool:
+    """True when an outer ``(...)`` pair wraps the entire string.
+
+    Canonical Danbooru tags never start with ``(``, so a balanced outer pair
+    enclosing the whole tag reliably identifies prompt emphasis/weight syntax
+    rather than a name such as ``pearl (gemstone)``.
+    """
+    if not text.startswith("(") or not text.endswith(")"):
+        return False
+    depth = 0
+    for index, char in enumerate(text):
+        if char == "(":
+            depth += 1
+        elif char == ")":
+            depth -= 1
+            if depth == 0:
+                return index == len(text) - 1
+    return False
+
+
+def strip_prompt_weight(tag: str) -> str:
+    """Remove prompt emphasis/weight syntax from ``tag``.
+
+    Handles ``(tag)``, ``((tag))``, ``(tag:1.3)`` and nested combinations such
+    as ``(((tag:1.2)))``. Name parens that are part of a canonical tag
+    (``pearl (gemstone)``) are preserved because they do not enclose the whole
+    string. The trailing ``:weight`` is only stripped inside a paren group, so
+    emoticon tags like ``:3`` are left untouched.
+    """
+    text = tag.strip()
+    while _is_paren_enclosed(text):
+        inner = text[1:-1].strip()
+        match = _WEIGHT_SUFFIX_PATTERN.search(inner)
+        if match:
+            inner = inner[: match.start()].rstrip()
+        text = inner
+    return text
+
+
 def normalize_tag(tag: str) -> str:
     return tag.strip().replace(" ", "_")
 
 
 def display_tag(tag: str) -> str:
-    return tag.strip().replace("_", " ")
+    stripped = tag.strip()
+    if _PRESERVE_UNDERSCORE_TAG_PATTERN.fullmatch(stripped):
+        return stripped
+    return stripped.replace("_", " ")
 
 
 def read_tag_pool_tsv(path: str) -> list[tuple[str, int]]:

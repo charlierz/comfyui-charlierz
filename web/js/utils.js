@@ -1,12 +1,37 @@
-function stripPromptWeight(tag) {
-  const weightedGroup = tag.match(/^\((.*):[0-9]+(?:\.[0-9]+)?\)$/);
-  if (weightedGroup) return weightedGroup[1];
+function isParenEnclosed(text) {
+  if (!text.startsWith("(") || !text.endsWith(")")) return false;
+  let depth = 0;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (ch === "(") depth++;
+    else if (ch === ")") {
+      depth--;
+      if (depth === 0) return i === text.length - 1;
+    }
+  }
+  return false;
+}
 
-  return tag.replace(/:[0-9]+(?:\.[0-9]+)?$/, "");
+function stripPromptWeight(tag) {
+  // Unwrap prompt emphasis/weight parens: `(tag)`, `((tag))`, `(tag:1.3)`,
+  // `(((tag:1.2)))`. Only an outer pair enclosing the whole tag is stripped,
+  // so name parens that are part of a canonical tag (`pearl (gemstone)`) are
+  // preserved. The trailing `:weight` is only stripped inside a paren group,
+  // so emoticon tags like `:3` are left untouched.
+  let text = (tag ?? "").trim();
+  const weightSuffix = /:[0-9]+(?:\.[0-9]+)?$/;
+  while (isParenEnclosed(text)) {
+    let inner = text.slice(1, -1).trim();
+    inner = inner.replace(weightSuffix, "").trim();
+    text = inner;
+  }
+  return text;
 }
 
 export function normalizeTag(tag) {
-  return stripPromptWeight((tag ?? "").trim()).trim().replace(/ /g, "_");
+  return stripPromptWeight(tag)
+    .trim()
+    .replace(/ /g, "_");
 }
 
 export function getCurrentTagRange(text, cursorPos) {
