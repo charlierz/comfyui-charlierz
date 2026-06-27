@@ -1,0 +1,96 @@
+# Curated compatible expression bundles.
+# Format supports optional weights: weight::tag, tag, tag
+# Emoticons are included inside compatible bundles instead of sampled independently.
+
+4::smile, open mouth, :d
+3::smile, open mouth, blush, :d
+3::happy, smile, open mouth, :d
+2::happy, smile, closed eyes, ^ ^
+2::smile, closed eyes, ^ ^
+2::grin, smile, open mouth, :d
+2::smile, fang, open mouth, :d
+2::light smile, smile, closed mouth
+2::light smile, parted lips, looking at viewer
+2::one eye closed, smile, ;d
+
+3::embarrassed, blush, open mouth
+2::embarrassed, blush, sweatdrop
+2::embarrassed, blush, wavy mouth
+2::nervous, blush, sweatdrop
+2::nervous, nervous sweating, sweatdrop
+1::nervous smile, nervous, smile
+1::shy, blush, closed mouth
+1::flustered, blush, open mouth
+
+3::angry, open mouth, anger vein
+2::angry, v-shaped eyebrows, clenched teeth
+2::angry, frown, v-shaped eyebrows
+2::annoyed, frown, anger vein
+1::scowl, frown, v-shaped eyebrows
+1::furrowed brow, frown, serious
+
+3::crying, tears, open mouth
+2::crying, tears, closed eyes
+2::sad, tears, closed mouth
+2::sad, crying, tears
+2::tearing up, tears, blush
+1::streaming tears, crying, tears
+1::sobbing, crying, tears
+
+3::surprised, open mouth, :o
+2::surprised, open mouth, wide-eyed
+2::surprised, sweatdrop, open mouth
+2::surprised, !?, open mouth
+1::wide-eyed, open mouth, :o
+1::surprised, open mouth, sweatdrop
+
+3::expressionless, closed mouth, looking at viewer
+2::expressionless, parted lips, looking at viewer
+2::expressionless, closed mouth, :|
+1::blank stare, expressionless, closed mouth
+1::unamused, closed mouth, looking at viewer
+1::bored, closed mouth
+
+3::smug, smile, closed mouth
+2::smug, smirk, smile
+2::smug, smile, :3
+2::smirk, grin, smile
+1::doyagao, smug, smile
+1::smug, >:), smile
+
+3::pout, closed mouth, :t
+2::pout, blush, closed mouth
+2::pout, frown, v-shaped eyebrows
+1::puffy cheeks, pout, closed mouth
+1::sad, frown, closed mouth
+
+2::confused, ?, open mouth
+2::confused, ?, sweatdrop
+1::confused, ??, open mouth
+1::confused, @ @, open mouth
+1::thinking, ?, closed mouth
+
+2::scared, open mouth, tears
+2::scared, wide-eyed, open mouth
+2::scared, sweatdrop, open mouth
+1::horrified, scared, open mouth
+1::turn pale, scared, sweatdrop
+
+2::sleepy, closed eyes, yawning
+2::sleepy, open mouth, yawning
+1::sleepy, one eye closed, ;o
+1::zzz, sleepy, closed eyes
+
+3::naughty face, smile, tongue out
+2::naughty face, seductive smile, smile
+2::sexually suggestive, tongue out, open mouth
+2::seductive smile, smile, half-closed eyes
+1::aroused, blush, open mouth
+1::seductive smile, smile, half-closed eyes
+
+3::ahegao, open mouth, tongue out
+2::ahegao, rolling eyes, tongue out
+2::orgasm, open mouth, blush
+2::orgasm, closed eyes, tongue out
+1::torogao, orgasm, open mouth
+1::moaning, open mouth, blush

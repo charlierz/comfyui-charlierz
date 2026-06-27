@@ -572,6 +572,19 @@ class PromptCatalogPromptTests(unittest.TestCase):
         self.assertEqual(id_results[0]["id"], "portraits/soft-lighting")
         self.assertEqual(text_results[0]["id"], "scene/night")
 
+    def test_prompt_tree_preserves_children_when_prompt_exists_at_same_path_as_directory(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            self._write(temp_dir, "x.txt", "parent prompt\n")
+            self._write(temp_dir, "x/child.txt", "child prompt\n")
+            with patch.object(prompt_catalog, "PROMPTS_DIR", temp_dir):
+                tree = prompt_catalog.list_prompts()["tree"]
+
+        x = tree["children"][0]
+        self.assertEqual(x["type"], "directory")
+        self.assertEqual(x["id"], "x")
+        self.assertEqual(x["insertText"], "parent prompt\n")
+        self.assertEqual(x["children"][0]["id"], "x/child")
+
     def test_save_prompt_normalizes_id_trims_text_and_rejects_empty(self):
         with tempfile.TemporaryDirectory() as temp_dir, patch.object(prompt_catalog, "PROMPTS_DIR", temp_dir):
             detail = prompt_catalog.save_prompt("Portraits/Soft Lighting", "\n  1girl  \n", overwrite=False)

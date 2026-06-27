@@ -442,13 +442,22 @@ def list_prompts() -> dict[str, Any]:
         parts = record.id.split("/")
         for part in parts[:-1]:
             children = node.setdefault("children", {})
-            node = children.setdefault(
-                part,
-                {"type": "directory", "label": part.replace("_", " "), "children": {}},
-            )
+            existing = children.get(part)
+            if not isinstance(existing, dict):
+                existing = {"type": "directory", "label": part.replace("_", " "), "children": {}}
+                children[part] = existing
+            elif existing.get("type") != "directory":
+                existing["type"] = "directory"
+                existing.setdefault("children", {})
+            node = existing
 
         children = node.setdefault("children", {})
-        children[parts[-1]] = _prompt_summary(record)
+        existing = children.get(parts[-1])
+        prompt_node = _prompt_summary(record)
+        if isinstance(existing, dict) and existing.get("type") == "directory":
+            existing.update({k: v for k, v in prompt_node.items() if k != "type"})
+        else:
+            children[parts[-1]] = prompt_node
 
     return {"tree": _sort_tree(tree), "diagnostics": diagnostics}
 

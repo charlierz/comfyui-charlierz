@@ -392,6 +392,7 @@ export class PromptHelperAutocomplete {
       localStorage.getItem(RELATED_METHOD_STORAGE_KEY) ??
       DEFAULT_RELATED_METHOD;
     this.currentRelatedRequest = null;
+    this.relatedRequestId = 0;
     this.autocompleteRequestId = 0;
     this.pendingAutocompleteRequest = null;
     this.#initializeRelatedMethodSelector();
@@ -418,6 +419,7 @@ export class PromptHelperAutocomplete {
 
   #hideAllPopups() {
     this.currentRelatedRequest = null;
+    this.relatedRequestId += 1;
     this.autocompleteRequestId += 1;
     this.pendingAutocompleteRequest = null;
     this.autocompletePopup.hide();
@@ -542,14 +544,15 @@ export class PromptHelperAutocomplete {
   }
 
   async #handleInput(event) {
+    this.currentRelatedRequest = null;
+    this.relatedRequestId += 1;
+    this.relatedPopup.hide();
+    this.characterTagsPopup.hide();
+
     const partial = getCurrentPartialTag(event.target);
     if (!partial) {
       this.autocompletePopup.hide();
-      return;
     }
-
-    this.currentRelatedRequest = null;
-    this.relatedPopup.hide();
   }
 
   async #handleKeyUp(event) {
@@ -712,6 +715,7 @@ export class PromptHelperAutocomplete {
 
   async #showRelatedTags(request) {
     this.currentRelatedRequest = request;
+    const requestId = ++this.relatedRequestId;
     const { node, textarea, category, tag } = request;
 
     if (this.#isAutocompleteTakingPrecedence(textarea)) {
@@ -729,8 +733,11 @@ export class PromptHelperAutocomplete {
       0,
       MAX_RELATED_RESULTS,
     );
-    if (this.#isAutocompleteTakingPrecedence(textarea)) {
-      this.currentRelatedRequest = null;
+    if (
+      requestId !== this.relatedRequestId ||
+      this.currentRelatedRequest !== request ||
+      this.#isAutocompleteTakingPrecedence(textarea)
+    ) {
       this.relatedPopup.hide();
       return;
     }
