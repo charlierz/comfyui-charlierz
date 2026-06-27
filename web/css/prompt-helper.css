@@ -238,8 +238,8 @@
 .charlierz-wildcard-browser-dialog {
   display: flex;
   flex-direction: column;
-  width: min(900px, calc(100vw - 48px));
-  height: min(640px, calc(100vh - 48px));
+  width: min(1100px, calc(100vw - 48px));
+  height: min(900px, calc(100vh - 16px));
   border: 1px solid var(--border-color);
   border-radius: 8px;
   background: var(--comfy-input-bg);
@@ -335,6 +335,10 @@
   flex: 1;
 }
 
+.charlierz-wildcard-browser-body-prompts {
+  grid-template-columns: minmax(260px, 0.85fr) minmax(420px, 1.6fr);
+}
+
 .charlierz-wildcard-browser-results,
 .charlierz-wildcard-browser-details {
   min-height: 0;
@@ -348,17 +352,52 @@
   overflow-y: auto;
 }
 
-.charlierz-prompt-browser-actions {
+.charlierz-prompt-browser-action-group {
+  padding: 8px;
+}
+
+.charlierz-prompt-browser-section-separator {
+  height: 1px;
+  background: var(--border-color);
+}
+
+.charlierz-prompt-browser-action-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.charlierz-prompt-browser-action-heading {
+  color: var(--descrip-text);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.charlierz-prompt-browser-action-buttons {
   display: flex;
   flex-wrap: wrap;
+  justify-content: flex-end;
   gap: 6px;
-  padding: 8px;
-  border-bottom: 1px solid var(--border-color);
+  margin-left: auto;
+}
+
+.charlierz-prompt-decompose-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 8px;
+  color: var(--descrip-text);
+  font-size: 12px;
+  white-space: nowrap;
 }
 
 .charlierz-prompt-id-input {
+  box-sizing: border-box;
   width: 100%;
   min-width: 0;
+  margin-top: 8px;
   border: 1px solid var(--border-color);
   border-radius: 4px;
   padding: 6px 8px;
@@ -370,7 +409,7 @@
   display: block;
   box-sizing: border-box;
   width: calc(100% - 16px);
-  min-height: 220px;
+  min-height: 300px;
   margin: 8px;
   border: 1px solid var(--border-color);
   border-radius: 4px;
@@ -381,8 +420,14 @@
   font-family: monospace;
 }
 
+.charlierz-prompt-id-input:disabled,
+.charlierz-prompt-editor:disabled {
+  opacity: 0.85;
+  cursor: default;
+}
+
 .charlierz-prompt-preview {
-  min-height: 120px;
+  min-height: 150px;
   margin: 8px;
   border: 1px solid var(--border-color);
   border-radius: 4px;
