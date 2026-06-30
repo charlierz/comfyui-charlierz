@@ -1,6 +1,6 @@
 # comfyui-charlierz
 
-Personal ComfyUI custom nodes and browser extensions for image-prompt authoring, llama.cpp chat calls, matting helpers, scaling utilities, and token estimates.
+Personal ComfyUI custom nodes and browser extensions for image-prompt authoring, llama.cpp chat calls, matting helpers, scaling utilities, token estimates, and Anima LLLite detailer hooks for Impact Pack.
 
 ## Features
 
@@ -119,6 +119,26 @@ mysterious aura
 
 Pool files do not store related tags. Generated relationship data, including character relationships, lives separately.
 
+### Anima LLLite detailer hook
+
+`Anima LLLite Detailer Hook` bridges ComfyUI-Impact-Pack's detailer with ComfyUI-Anima-LLLite so Anima ControlNet-LLLite guidance is applied to the detailer's per-segment crop instead of the full image. It outputs a `DETAILER_HOOK` consumed by Impact's detailer nodes.
+
+The hook subclasses Impact's `DetailerHook` and works in two phases:
+
+- `post_upscale()` captures the detailer's per-segment crop image and mask.
+- `pre_ksample()` looks up `AnimaLLLiteApply` from `NODE_CLASS_MAPPINGS` and calls it with the captured crop/mask, then returns the patched model so the LLLite guidance aligns with the detailer's internal sampling region.
+
+Inputs:
+
+- `lllite_name`: controlnet file from `folder_paths.get_filename_list("controlnet")`.
+- `strength`: FLOAT, default `1.0` (`-10.0`–`10.0`).
+- `start_percent` / `end_percent`: FLOAT, default `0.0` / `1.0` (`0.0`–`1.0`).
+- `preserve_wrapper`: BOOLEAN, default `True`.
+
+Output: `detailer_hook` (`DETAILER_HOOK`). Category: `charlierz/detailer`.
+
+Requires both ComfyUI-Impact-Pack (for `DetailerHook` and the consuming detailer) and ComfyUI-Anima-LLLite (for `AnimaLLLiteApply`). `pre_ksample()` raises a `RuntimeError` if `AnimaLLLiteApply` is not registered.
+
 ### Utility nodes
 
 - `Background Color (Matting)` composites images over an RGB background using a mask.
@@ -142,6 +162,7 @@ No separate Python package installation is currently defined.
   - Tested with ComfyUI `v0.22.0-62-g4af9a472`.
 - No extra Python dependencies beyond ComfyUI's requirements (`torch`, `Pillow`, and `aiohttp`).
 - ComfyUI frontend APIs: `/scripts/app.js`, `/scripts/api.js`, `/scripts/widgets.js`.
+- For Anima LLLite detailer hook: both ComfyUI-Impact-Pack (for `DetailerHook` and the consuming detailer) and ComfyUI-Anima-LLLite (for `AnimaLLLiteApply`) must be installed.
 - For llama.cpp nodes: a running llama.cpp server with OpenAI-compatible chat completions.
   - Tested with `llama-server` version `657 (0253fb2)`.
   - Uses `/v1/chat/completions`, `/models`, and `/models/unload`.
